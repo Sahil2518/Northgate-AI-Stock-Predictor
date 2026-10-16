@@ -1,0 +1,143 @@
+"""
+Northgate AI Stock Predictor - Comprehensive Backend Test Suite
+Tests Market Data, Technical Indicators, Sentiment, ML/DL Forecasting, Portfolio Optimizer, and API endpoints.
+"""
+import pytest
+import numpy as np
+import pandas as pd
+from fastapi.testclient import TestClient
+from app.main import app
+from app.services.market_data import generate_synthetic_history, fetch_stock_quote, fetch_stock_history
+from app.services.technical import enrich_dataframe_with_indicators, get_technical_summary
+from app.services.sentiment import analyze_headline, get_ticker_sentiment
+from app.services.ml_predictor import train_and_predict_ml
+from app.services.dl_predictor import train_and_predict_dl
+from app.services.portfolio import optimize_portfolio
+from app.models.schemas import PortfolioOptimizeRequest
+from app.services.advisor import generate_stock_recommendation
+
+client = TestClient(app)
+
+def test_root_endpoint():
+    response = client.get("/")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "operational"
+    assert "Northgate" in data["platform"]
+
+def test_health_endpoint():
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json()["status"] == "healthy"
+
+def test_market_data_synthetic_generation():
+    df = generate_synthetic_history("AAPL", days=100)
+    assert len(df) == 100
+    assert "Close" in df.columns
+    assert "Open" in df.columns
+    assert "High" in df.columns
+    assert "Low" in df.columns
+    assert "Volume" in df.columns
+    assert df["Close"].iloc[-1] > 0
+
+def test_stock_quote_fetch():
+    quote = fetch_stock_quote("AAPL")
+    assert quote.ticker == "AAPL"
+    assert quote.current_price > 0
+    assert quote.company_name is not None
+
+def test_technical_indicators_calculation():
+    df = generate_synthetic_history("MSFT", days=250)
+    enriched = enrich_dataframe_with_indicators(df)
+    
+    assert "RSI" in enriched.columns
+    assert "MACD" in enriched.columns
+    assert "MACD_Signal" in enriched.columns
+    assert "BB_Upper" in enriched.columns
+    assert "SMA_20" in enriched.columns
+    
+    summary = get_technical_summary(df, "MSFT")
+    assert summary.ticker == "MSFT"
+    assert 0 <= summary.rsi_14 <= 100
+    assert summary.rsi_condition in ["Overbought", "Neutral", "Oversold"]
+
+def test_sentiment_analysis():
+    # Test positive headline
+    score_pos, label_pos = analyze_headline("Company reports record revenue and massive quarterly profit surge")
+    assert score_pos > 0.15
+    assert label_pos == "Bullish"
+    
+    # Test negative headline
+    score_neg, label_neg = analyze_headline("Company faces antitrust investigation as quarterly profits slump")
+    assert score_neg < -0.15
+    assert label_neg == "Bearish"
+    
+    sentiment = get_ticker_sentiment("AAPL")
+    assert sentiment.ticker == "AAPL"
+    assert -1.0 <= sentiment.compound_score <= 1.0
+    assert len(sentiment.articles) > 0
+
+def test_ml_and_dl_prediction():
+    df = generate_synthetic_history("NVDA", days=250)
+    
+    # Test ML
+    ml_res = train_and_predict_ml(df, horizon_days=7)
+    assert len(ml_res["predictions"]) == 7
+    assert ml_res["metrics"]["mae"] >= 0
+    assert "Ratio_SMA20" in ml_res["feature_importance"] or len(ml_res["feature_importance"]) > 0
+    
+    # Test DL PyTorch LSTM
+    dl_res = train_and_predict_dl(df, horizon_days=7)
+    assert len(dl_res["predictions"]) == 7
+    for p in dl_res["predictions"]:
+        assert p > 0
+
+def test_portfolio_optimization():
+    req = PortfolioOptimizeRequest(
+        tickers=["AAPL", "MSFT", "GOOGL"],
+        investment_amount=15000.0,
+        risk_free_rate=0.045,
+        timeframe_years=1
+    )
+    result = optimize_portfolio(req)
+    
+    assert result.investment_amount == 15000.0
+    assert len(result.max_sharpe_portfolio.allocations) == 3
+    assert len(result.min_volatility_portfolio.allocations) == 3
+    assert len(result.efficient_frontier) > 0
+    assert len(result.simulated_portfolios) > 100
+    
+    # Weights should sum to approximately 100%
+    max_sharpe_weights_sum = sum(a.weight for a in result.max_sharpe_portfolio.allocations)
+    assert abs(max_sharpe_weights_sum - 100.0) < 1.0
+
+def test_recommendation_engine():
+    rec = generate_stock_recommendation("AAPL")
+    assert rec.ticker == "AAPL"
+    assert rec.recommendation in ["STRONG BUY", "BUY", "HOLD", "SELL", "STRONG SELL"]
+    assert 0 <= rec.confidence_score <= 100
+    assert rec.target_price_30d > 0
+    assert rec.stop_loss_price > 0
+    assert len(rec.signals) == 4
+    assert rec.ai_thesis is not None
+
+def test_api_integration():
+    # Quote endpoint
+    res_q = client.get("/api/v1/stocks/quote/AAPL")
+    assert res_q.status_code == 200
+    
+    # Prediction endpoint
+    res_p = client.get("/api/v1/predict/AAPL?horizon=7")
+    assert res_p.status_code == 200
+    p_data = res_p.json()
+    assert p_data["ticker"] == "AAPL"
+    assert len(p_data["predictions"]) > 7  # Includes historical continuity points
+    
+    # Sentiment endpoint
+    res_s = client.get("/api/v1/sentiment/AAPL")
+    assert res_s.status_code == 200
+    
+    # Recommendations endpoint
+    res_r = client.get("/api/v1/recommendations/AAPL")
+    assert res_r.status_code == 200
+    assert res_r.json()["recommendation"] in ["STRONG BUY", "BUY", "HOLD", "SELL", "STRONG SELL"]
