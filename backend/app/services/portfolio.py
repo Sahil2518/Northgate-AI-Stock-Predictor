@@ -1,7 +1,21 @@
 """
 Northgate AI Stock Predictor - Modern Portfolio Theory Optimization Service
-Calculates Markowitz Efficient Frontier, Max Sharpe Ratio, Min Volatility, VaR, and CVaR.
+===========================================================================
+This module implements Harry Markowitz's Nobel-prize winning Mean-Variance 
+Portfolio Theory (MPT). 
+
+Given a multi-asset universe, we calculate:
+1. Expected annual asset returns and annual covariance matrix (252 trading days).
+2. The Efficient Frontier: The set of optimal portfolios offering the highest 
+   expected return for a given level of risk.
+3. The Maximum Sharpe Ratio Portfolio (Tangency Portfolio): Optimal risk-adjusted efficiency.
+4. The Minimum Volatility Portfolio: The lowest possible variance allocation for 
+   capital preservation.
+5. Downside Tail-Risk Metrics:
+   - Value-at-Risk (VaR 95%): The maximum expected 1-day loss at 95% confidence.
+   - Conditional VaR (CVaR 95% / Expected Shortfall): The expected loss when the 5% tail risk is breached.
 """
+
 from typing import List, Dict, Any, Tuple
 import numpy as np
 import pandas as pd
@@ -12,6 +26,8 @@ from app.models.schemas import (
     EfficientFrontierPoint, SimulatedPortfolioPoint
 )
 from app.services.market_data import fetch_stock_history
+
+TRADING_DAYS_PER_YEAR = 252
 
 def fetch_universe_returns(tickers: List[str], years: int = 2) -> pd.DataFrame:
     """Fetches aligned historical daily returns for the specified ticker universe."""
@@ -28,30 +44,41 @@ def fetch_universe_returns(tickers: List[str], years: int = 2) -> pd.DataFrame:
     return daily_returns
 
 def portfolio_performance(weights: np.ndarray, mean_returns: np.ndarray, cov_matrix: np.ndarray) -> Tuple[float, float]:
-    """Computes expected annual return and annual volatility for a weight vector."""
-    returns = np.sum(mean_returns * weights) * 252
-    volatility = np.sqrt(np.dot(weights.T, np.dot(cov_matrix * 252, weights)))
+    """
+    Computes annualized expected return and annualized portfolio volatility:
+      R_p = sum(w_i * r_i) * 252
+      Sigma_p = sqrt(w^T * Cov * 252 * w)
+    """
+    returns = np.sum(mean_returns * weights) * TRADING_DAYS_PER_YEAR
+    volatility = np.sqrt(np.dot(weights.T, np.dot(cov_matrix * TRADING_DAYS_PER_YEAR, weights)))
     return returns, volatility
 
 def negative_sharpe_ratio(weights: np.ndarray, mean_returns: np.ndarray, cov_matrix: np.ndarray, rf: float) -> float:
+    """Objective function to minimize when seeking Maximum Sharpe ratio."""
     p_ret, p_vol = portfolio_performance(weights, mean_returns, cov_matrix)
     if p_vol == 0:
         return 0.0
+    # Negative sign because scipy minimize minimizes the objective
     return -(p_ret - rf) / p_vol
 
 def portfolio_volatility(weights: np.ndarray, mean_returns: np.ndarray, cov_matrix: np.ndarray) -> float:
+    """Objective function to minimize when seeking Minimum Volatility."""
     return portfolio_performance(weights, mean_returns, cov_matrix)[1]
 
 def calculate_var_cvar(weights: np.ndarray, returns_df: pd.DataFrame, alpha: float = 0.05) -> Tuple[float, float]:
-    """Calculates historical 1-day 95% Value-at-Risk and Conditional VaR (Expected Shortfall)."""
-    p_daily_returns = (returns_df * weights).sum(axis=1)
-    var = -float(np.percentile(p_daily_returns, alpha * 100))
-    cvar = -float(p_daily_returns[p_daily_returns <= -var].mean()) if (p_daily_returns <= -var).any() else var * 1.3
+    """
+    Computes non-parametric historical 1-day 95% Value-at-Risk and Expected Shortfall (CVaR).
+    VaR answers: 'What is the loss threshold that will only be exceeded 5% of the time?'
+    CVaR answers: 'When that 5% worst-case scenario occurs, what is the average loss?'
+    """
+    portfolio_daily_returns = (returns_df * weights).sum(axis=1)
+    var = -float(np.percentile(portfolio_daily_returns, alpha * 100))
+    cvar = -float(portfolio_daily_returns[portfolio_daily_returns <= -var].mean()) if (portfolio_daily_returns <= -var).any() else var * 1.3
     return max(var, 0.001), max(cvar, 0.002)
 
 def optimize_portfolio(request: PortfolioOptimizeRequest) -> PortfolioOptimizeResponse:
     tickers = [t.upper().strip() for t in request.tickers]
-    tickers = list(dict.fromkeys(tickers))  # deduplicate
+    tickers = list(dict.fromkeys(tickers))  # ensure unique assets
     returns_df = fetch_universe_returns(tickers, years=request.timeframe_years)
     
     num_assets = len(tickers)
@@ -59,17 +86,18 @@ def optimize_portfolio(request: PortfolioOptimizeRequest) -> PortfolioOptimizeRe
     cov_matrix = returns_df.cov().values
     rf = request.risk_free_rate
     
-    # 1. Equal-Weight Benchmark
-    eq_weights = np.ones(num_assets) / num_assets
-    eq_ret, eq_vol = portfolio_performance(eq_weights, mean_daily, cov_matrix)
-    eq_sharpe = (eq_ret - rf) / eq_vol if eq_vol > 0 else 0
-    eq_var, eq_cvar = calculate_var_cvar(eq_weights, returns_df)
-    
-    # 2. Maximum Sharpe Ratio Optimization
+    # Standard long-only portfolio constraint: weights sum to 1.0, 0 <= w_i <= 1.0
     bounds = tuple((0.0, 1.0) for _ in range(num_assets))
     constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1.0})
     init_guess = np.ones(num_assets) / num_assets
     
+    # 1. Benchmark: 1/N Equal Weight Portfolio
+    eq_weights = init_guess
+    eq_ret, eq_vol = portfolio_performance(eq_weights, mean_daily, cov_matrix)
+    eq_sharpe = (eq_ret - rf) / eq_vol if eq_vol > 0 else 0
+    eq_var, eq_cvar = calculate_var_cvar(eq_weights, returns_df)
+    
+    # 2. Maximum Sharpe Ratio Optimization (Tangency Portfolio)
     opt_sharpe = minimize(
         negative_sharpe_ratio,
         init_guess,
@@ -83,7 +111,7 @@ def optimize_portfolio(request: PortfolioOptimizeRequest) -> PortfolioOptimizeRe
     max_sharpe = (max_s_ret - rf) / max_s_vol if max_s_vol > 0 else 0
     ms_var, ms_cvar = calculate_var_cvar(max_sharpe_weights, returns_df)
     
-    # 3. Minimum Volatility Optimization
+    # 3. Minimum Volatility Optimization (Capital Preservation)
     opt_vol = minimize(
         portfolio_volatility,
         init_guess,
@@ -97,7 +125,7 @@ def optimize_portfolio(request: PortfolioOptimizeRequest) -> PortfolioOptimizeRe
     min_v_sharpe = (min_v_ret - rf) / min_v_vol if min_v_vol > 0 else 0
     mv_var, mv_cvar = calculate_var_cvar(min_vol_weights, returns_df)
     
-    # 4. Monte Carlo Simulation (1,500 portfolios)
+    # 4. Monte Carlo Risk Surface Simulation (1,500 random portfolio vectors)
     simulated: List[SimulatedPortfolioPoint] = []
     np.random.seed(42)
     for _ in range(1500):
@@ -111,7 +139,7 @@ def optimize_portfolio(request: PortfolioOptimizeRequest) -> PortfolioOptimizeRe
             sharpe=round(float(s), 2)
         ))
         
-    # 5. Efficient Frontier Generation
+    # 5. Efficient Frontier Discrete Sampling (25 target return steps)
     target_returns = np.linspace(min_v_ret * 0.9, max(max_s_ret * 1.25, min_v_ret * 1.5), 25)
     efficient_frontier: List[EfficientFrontierPoint] = []
     
@@ -137,10 +165,9 @@ def optimize_portfolio(request: PortfolioOptimizeRequest) -> PortfolioOptimizeRe
                 sharpe=round(float(sh), 2)
             ))
             
-    # Sort frontier by volatility
     efficient_frontier.sort(key=lambda p: p.volatility)
     
-    # Latest prices for share allocation
+    # Retrieve current prices to compute practical share purchases
     latest_prices = {t: fetch_stock_history(t, period="5d")['Close'].iloc[-1] for t in tickers}
     
     def create_result(name: str, desc: str, w: np.ndarray, r: float, v: float, s: float, var: float, cvar: float) -> PortfolioResult:
@@ -172,19 +199,19 @@ def optimize_portfolio(request: PortfolioOptimizeRequest) -> PortfolioOptimizeRe
         
     max_sharpe_res = create_result(
         "Maximum Sharpe Ratio (Tangency)",
-        "Maximizes excess return per unit of volatility. Highest risk-adjusted growth efficiency.",
+        "Maximizes excess return per unit of volatility. Delivers highest risk-adjusted capital efficiency.",
         max_sharpe_weights, max_s_ret, max_s_vol, max_sharpe, ms_var, ms_cvar
     )
     
     min_vol_res = create_result(
         "Minimum Volatility (Capital Preservation)",
-        "Minimizes portfolio variance regardless of return. Best for defensive and risk-averse allocation.",
+        "Minimizes overall portfolio variance regardless of return. Best for defensive and risk-conscious investors.",
         min_vol_weights, min_v_ret, min_v_vol, min_v_sharpe, mv_var, mv_cvar
     )
     
     eq_weight_res = create_result(
         "Equal Weight (1/N Benchmark)",
-        "Equal allocation across all selected assets as a neutral baseline.",
+        "Distributes capital uniformly across all assets as an unconstrained baseline comparison.",
         eq_weights, eq_ret, eq_vol, eq_sharpe, eq_var, eq_cvar
     )
     

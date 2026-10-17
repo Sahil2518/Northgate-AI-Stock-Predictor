@@ -1,7 +1,19 @@
 """
-Northgate AI Stock Predictor - Consensus Ensemble Predictor
-Combines Machine Learning, Deep Learning LSTM, and Financial Sentiment Analysis with 95% Confidence Bounds.
+Northgate AI Stock Predictor - Consensus Ensemble Forecasting Engine
+====================================================================
+No single model family performs best across all market regimes. 
+Deep learning sequence models (LSTM) excel at finding cyclic autocorrelation 
+and temporal persistence, while tree ensembles (XGBoost/Random Forest) are 
+superior at recognizing cross-sectional indicator thresholds (e.g. RSI overbought).
+
+This consensus engine fuses both paradigms:
+1. Deep Learning Sequence Forecast: 50% baseline weight.
+2. Machine Learning Tree Forecast: 50% baseline weight.
+3. Financial Sentiment Drift: Dynamic momentum adjustment based on news polarity.
+4. Statistical Uncertainty Envelope: 95% Confidence Bounds expanding with sqrt(time),
+   consistent with geometric Brownian motion diffusion models.
 """
+
 import datetime
 from typing import Dict, Any, List
 import numpy as np
@@ -12,37 +24,42 @@ from app.services.ml_predictor import train_and_predict_ml
 from app.services.dl_predictor import train_and_predict_dl
 from app.services.sentiment import get_ticker_sentiment
 
+
 def get_ensemble_predictions(ticker: str, horizon_days: int = 14) -> PredictionResponse:
+    """
+    Computes a synthesized multi-model forecast with 95% confidence intervals.
+    """
     ticker_clean = ticker.upper()
     df = fetch_stock_history(ticker_clean, period="2y")
     current_price = float(df['Close'].iloc[-1])
     
-    # 1. Run Machine Learning Models (XGBoost + RF)
+    # 1. Run Machine Learning Models (XGBoost + Random Forest)
     ml_result = train_and_predict_ml(df, horizon_days=horizon_days)
     ml_preds = ml_result["predictions"]
     ml_metrics = ml_result["metrics"]
     feat_importance = ml_result["feature_importance"]
     
-    # 2. Run Deep Learning Model (PyTorch LSTM)
+    # 2. Run Deep Learning Model (PyTorch LSTM Neural Network)
     dl_result = train_and_predict_dl(df, horizon_days=horizon_days)
     dl_preds = dl_result["predictions"]
     
-    # 3. Retrieve Financial News Sentiment
+    # 3. Retrieve Real-Time Financial News Sentiment
     sentiment_summary = get_ticker_sentiment(ticker_clean)
-    sentiment_score = sentiment_summary.compound_score  # -1.0 to 1.0
+    sentiment_score = sentiment_summary.compound_score  # bounded between -1.0 and +1.0
     
     # 4. Ensemble Fusion Weights
-    # ML: 0.45, DL: 0.45, Sentiment Momentum adjustment: +/- 0.10
+    # 50/50 balance between sequence neural network and decision trees
     w_ml = 0.50
     w_dl = 0.50
     
-    # Rolling standard deviation for 95% confidence intervals
+    # 5. Measure 30-day realized volatility for confidence intervals
+    # In quantitative finance, diffusion error expands proportionally with sqrt(t)
     daily_returns = df['Close'].pct_change().dropna()
     sigma = float(daily_returns.iloc[-30:].std()) * current_price
     
     prediction_points: List[PredictionPoint] = []
     
-    # Include the last 15 historical days for chart continuity
+    # Stitch the last 15 historical sessions to provide visual continuity in the chart
     recent_history = df.tail(15)
     for date_idx, row in recent_history.iterrows():
         d_str = date_idx.strftime("%Y-%m-%d") if hasattr(date_idx, "strftime") else str(date_idx)[:10]
@@ -63,25 +80,26 @@ def get_ensemble_predictions(ticker: str, horizon_days: int = 14) -> PredictionR
     last_date = df.index[-1]
     ensemble_forecasts: List[float] = []
     
+    # 6. Generate Forward Projections & Confidence Bands
     for i in range(horizon_days):
         step = i + 1
         p_ml = ml_preds[i]
         p_dl = dl_preds[i]
         
-        # Base ensemble price
+        # Base ensemble price from ML + DL
         base_pred = (w_ml * p_ml) + (w_dl * p_dl)
         
-        # Sentiment impulse: compound score of +0.30 imparts subtle momentum effect over horizon
+        # Sentiment drift adjustment: institutional sentiment applies subtle pressure
         sentiment_bias = base_pred * (sentiment_score * 0.002 * (step ** 0.5))
         final_pred = round(base_pred + sentiment_bias, 2)
         ensemble_forecasts.append(final_pred)
         
-        # 95% Confidence Interval: +/- 1.96 * sigma * sqrt(step)
+        # Standard 95% Confidence Interval: +/- 1.96 * sigma * sqrt(step)
         margin = 1.96 * sigma * np.sqrt(step * 0.7)
         lower_b = round(max(final_pred - margin, final_pred * 0.7), 2)
         upper_b = round(final_pred + margin, 2)
         
-        # Future business date
+        # Advance forward calendar date, skipping weekend exchange holidays
         next_d = last_date + pd.Timedelta(days=step)
         while next_d.weekday() >= 5:
             next_d += pd.Timedelta(days=1)

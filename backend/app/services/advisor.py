@@ -178,13 +178,29 @@ def generate_stock_recommendation(ticker: str) -> StockRecommendationResponse:
     downside_risk_pct = round(((current_price - stop_loss) / current_price) * 100, 2)
     risk_reward = round(abs(upside_pct) / downside_risk_pct, 2) if downside_risk_pct > 0 else 1.5
     
-    thesis = (
-        f"Northgate AI synthesizes a '{rating}' recommendation on {ticker_clean} based on a composite multi-factor score of "
-        f"{composite_score:+.1f}/100. Our deep learning LSTM and tree ensemble project a 30-day target of ${target_30d:.2f} "
-        f"({upside_pct:+.1f}%). News sentiment is currently {sentiment.sentiment_label.lower()} with {sentiment.bullish_pct}% positive bias. "
-        f"Risk parameters suggest an entry stop-loss at ${stop_loss:.2f} yielding a {risk_reward}:1 risk-reward profile."
-    )
-    
+    # Humanized, professional investment thesis crafted like institutional equity research
+    if rating in ["STRONG BUY", "BUY"]:
+        thesis = (
+            f"Our quantitative models establish a '{rating}' stance on {quote.company_name} ({ticker_clean}) "
+            f"with a composite conviction score of {composite_score:+.1f}/100. Our hybrid sequence & tree models "
+            f"forecast a 30-day price target of ${target_30d:.2f} (potential upside of {upside_pct:+.1f}%). "
+            f"Market media sentiment remains supportive at {sentiment.sentiment_label.lower()} ({sentiment.bullish_pct}% bullish). "
+            f"We advise a volatility-adjusted stop-loss at ${stop_loss:.2f} (2.0x ATR buffer) to lock in an asymmetric {risk_reward}:1 risk/reward profile."
+        )
+    elif rating in ["STRONG SELL", "SELL"]:
+        thesis = (
+            f"Risk parameters indicate cautionary positioning for {quote.company_name} ({ticker_clean}), supporting a '{rating}' rating "
+            f"(composite conviction: {composite_score:+.1f}/100). The predictive engine anticipates softening momentum towards "
+            f"${target_30d:.2f} ({upside_pct:+.1f}% expected move) amidst {sentiment.sentiment_label.lower()} headlines. "
+            f"Capital preservation is warranted; any protective stop or exit threshold is suggested around ${stop_loss:.2f}."
+        )
+    else:
+        thesis = (
+            f"{quote.company_name} ({ticker_clean}) demonstrates balanced risk/reward dynamics, warranting a neutral 'HOLD' recommendation "
+            f"(score: {composite_score:+.1f}/100). Technical indicators (RSI at {tech_summary.rsi_14:.1f}) show sideways consolidation around "
+            f"${current_price:.2f}. We recommend monitoring for a confirmed breakout beyond key moving averages before establishing fresh exposure."
+        )
+
     return StockRecommendationResponse(
         ticker=ticker_clean,
         company_name=quote.company_name,
