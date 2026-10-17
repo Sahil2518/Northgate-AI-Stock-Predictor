@@ -1,9 +1,17 @@
 /**
- * Northgate AI Stock Predictor - Frontend API Client
+ * Northgate AI Stock Predictor - Production Frontend API Client
+ * Dynamically resolves API base paths for both local development and containerized production environments.
  */
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000/api/v1';
+// In local Vite dev (port 5173), direct requests to the FastAPI backend port 8000.
+// In production (Docker/Nginx/Cloud), use the relative reverse proxy path /api/v1.
+const isDev = typeof window !== 'undefined' && window.location.port === '5173';
+const DEFAULT_BASE = isDev ? 'http://127.0.0.1:8000/api/v1' : '/api/v1';
+const API_BASE = import.meta.env.VITE_API_BASE || DEFAULT_BASE;
+const HEALTH_URL = API_BASE.includes('/api/v1') 
+  ? API_BASE.replace('/api/v1', '/health') 
+  : `${API_BASE}/health`;
 
 const apiClient = axios.create({
   baseURL: API_BASE,
@@ -14,26 +22,26 @@ const apiClient = axios.create({
 });
 
 export const api = {
-  // Stock data
+  // Real-time market quotes and historical technical bars
   getQuote: (ticker) => apiClient.get(`/stocks/quote/${ticker}`).then(res => res.data),
   getHistory: (ticker, period = '1y') => apiClient.get(`/stocks/history/${ticker}?period=${period}`).then(res => res.data),
   getTechnicals: (ticker) => apiClient.get(`/stocks/technicals/${ticker}`).then(res => res.data),
   getWatchlist: () => apiClient.get('/stocks/watchlist').then(res => res.data),
 
-  // AI Prediction
+  // Multi-model AI price forecasting (PyTorch LSTM + XGBoost + Sentiment)
   getPredictions: (ticker, horizon = 14) => apiClient.get(`/predict/${ticker}?horizon=${horizon}`).then(res => res.data),
 
-  // Sentiment Analysis
+  // Real-time financial news sentiment analysis
   getSentiment: (ticker) => apiClient.get(`/sentiment/${ticker}`).then(res => res.data),
 
-  // Recommendations
+  // Intelligent Buy/Hold/Sell multi-factor recommendations
   getRecommendation: (ticker) => apiClient.get(`/recommendations/${ticker}`).then(res => res.data),
 
-  // Portfolio Optimization
+  // Markowitz Modern Portfolio Theory optimization
   optimizePortfolio: (data) => apiClient.post('/portfolio/optimize', data).then(res => res.data),
 
-  // Health
-  checkHealth: () => axios.get('http://127.0.0.1:8000/health').then(res => res.data),
+  // System liveness and healthcheck
+  checkHealth: () => axios.get(HEALTH_URL).then(res => res.data),
 };
 
 export default api;
