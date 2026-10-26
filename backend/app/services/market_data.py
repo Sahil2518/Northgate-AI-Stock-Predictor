@@ -92,10 +92,11 @@ def fetch_stock_history(ticker: str, period: str = "2y") -> pd.DataFrame:
             return df
             
     # Try fetching from upstream market feed
+    min_required_len = 2 if period in ["1d", "5d", "1mo"] else 30
     try:
         yf_ticker = yf.Ticker(ticker_clean)
         df = yf_ticker.history(period=period, auto_adjust=True)
-        if df is not None and not df.empty and len(df) >= 30:
+        if df is not None and not df.empty and len(df) >= min_required_len:
             df.index = pd.to_datetime(df.index).tz_localize(None)
             df = df[['Open', 'High', 'Low', 'Close', 'Volume']].dropna()
             _HISTORY_CACHE[cache_key] = (now, df)
