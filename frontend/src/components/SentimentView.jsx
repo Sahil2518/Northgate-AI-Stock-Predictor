@@ -6,14 +6,12 @@ import {
   Minus, 
   ExternalLink, 
   Clock, 
-  CheckCircle2, 
-  BarChart2,
-  Sparkles,
-  Radio,
-  Sliders
+  Radio
 } from 'lucide-react';
 
-export default function SentimentView({ sentimentData, ticker, isLoading }) {
+export default function SentimentView({ sentimentData, ticker = 'AAPL', isLoading }) {
+  const articlesList = Array.isArray(sentimentData?.articles) ? sentimentData.articles : [];
+
   if (isLoading || !sentimentData) {
     return (
       <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-8 h-[380px] flex flex-col items-center justify-center space-y-3">
@@ -24,20 +22,17 @@ export default function SentimentView({ sentimentData, ticker, isLoading }) {
     );
   }
 
-  const {
-    compound_score,
-    sentiment_label,
-    bullish_pct,
-    neutral_pct,
-    bearish_pct,
-    articles_count,
-    sentiment_trend,
-    articles
-  } = sentimentData;
+  const compound_score = Number(sentimentData.compound_score ?? 0);
+  const sentiment_label = sentimentData.sentiment_label || 'Neutral';
+  const bullish_pct = Number(sentimentData.bullish_pct ?? 33);
+  const neutral_pct = Number(sentimentData.neutral_pct ?? 34);
+  const bearish_pct = Number(sentimentData.bearish_pct ?? 33);
+  const articles_count = Number(sentimentData.articles_count || articlesList.length);
+  const sentiment_trend = sentimentData.sentiment_trend || 'Steady';
 
   const getLabelBadge = (label) => {
-    if (label.includes('Bullish')) return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
-    if (label.includes('Bearish')) return 'text-rose-400 bg-rose-500/10 border-rose-500/30';
+    if (typeof label === 'string' && label.includes('Bullish')) return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
+    if (typeof label === 'string' && label.includes('Bearish')) return 'text-rose-400 bg-rose-500/10 border-rose-500/30';
     return 'text-amber-400 bg-amber-500/10 border-amber-500/30';
   };
 
@@ -107,7 +102,7 @@ export default function SentimentView({ sentimentData, ticker, isLoading }) {
       <div className="space-y-3">
         <div className="flex items-center justify-between text-xs text-slate-400">
           <span className="font-bold uppercase tracking-wider text-slate-500 text-[10px] font-mono">
-            Analyzed Media Articles ({articles_count || articles.length})
+            Analyzed Media Articles ({articles_count})
           </span>
           <span className="text-[11px] font-mono text-slate-500 flex items-center gap-1">
             <Radio className="w-3 h-3 text-emerald-400 animate-pulse" /> Live Feed
@@ -115,51 +110,58 @@ export default function SentimentView({ sentimentData, ticker, isLoading }) {
         </div>
 
         <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-          {articles.map((art, idx) => {
-            const isBullish = art.sentiment === 'Bullish';
-            const isBearish = art.sentiment === 'Bearish';
-            return (
-              <div 
-                key={idx}
-                className="bg-[#080B11] border border-[#1E273B] hover:border-[#2A3650] rounded-lg p-3 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-              >
-                <div className="space-y-1 flex-1">
-                  <a
-                    href={art.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-medium text-slate-200 hover:text-sky-400 transition-colors flex items-center gap-1.5"
-                  >
-                    <span>{art.title}</span>
-                    <ExternalLink className="w-3 h-3 opacity-60 shrink-0" />
-                  </a>
-                  <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
-                    <span className="text-slate-400">{art.publisher || 'Financial Wire'}</span>
-                    <span>·</span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {art.published_at || 'Recent'}
+          {articlesList.length === 0 ? (
+            <div className="p-6 text-center text-slate-500 text-xs font-mono">
+              No recent news articles ingested. Feed is synchronizing.
+            </div>
+          ) : (
+            articlesList.map((art, idx) => {
+              const isBullish = art.sentiment === 'Bullish';
+              const isBearish = art.sentiment === 'Bearish';
+              const artScore = Number(art.score ?? 0);
+              return (
+                <div 
+                  key={idx}
+                  className="bg-[#080B11] border border-[#1E273B] hover:border-[#2A3650] rounded-lg p-3 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                >
+                  <div className="space-y-1 flex-1">
+                    <a
+                      href={art.url || '#'}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-slate-200 hover:text-sky-400 transition-colors flex items-center gap-1.5"
+                    >
+                      <span>{art.title}</span>
+                      <ExternalLink className="w-3 h-3 opacity-60 shrink-0" />
+                    </a>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
+                      <span className="text-slate-400">{art.publisher || 'Financial Wire'}</span>
+                      <span>·</span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {art.published_at || 'Recent'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                      isBullish 
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
+                        : isBearish 
+                        ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' 
+                        : 'bg-slate-800 text-slate-300 border-slate-700'
+                    }`}>
+                      {art.sentiment || 'Neutral'}
+                    </span>
+                    <span className="font-mono text-[11px] text-slate-400 tabular-nums">
+                      {artScore > 0 ? '+' : ''}{artScore.toFixed(2)}
                     </span>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
-                    isBullish 
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
-                      : isBearish 
-                      ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' 
-                      : 'bg-slate-800 text-slate-300 border-slate-700'
-                  }`}>
-                    {art.sentiment}
-                  </span>
-                  <span className="font-mono text-[11px] text-slate-400 tabular-nums">
-                    {art.score > 0 ? '+' : ''}{art.score.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
 

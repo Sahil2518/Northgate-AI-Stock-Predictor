@@ -20,31 +20,30 @@ import {
 export default function RecommendationCard({ recommendation, quote, onOpenPaperTrade }) {
   if (!recommendation) {
     return (
-      <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-8 animate-pulse text-center">
-        <div className="h-5 bg-[#182137] rounded w-1/4 mx-auto mb-3" />
+      <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-8 animate-pulse text-center space-y-3">
+        <div className="h-5 bg-[#182137] rounded w-1/4 mx-auto" />
         <div className="h-4 bg-[#182137]/60 rounded w-1/2 mx-auto" />
       </div>
     );
   }
 
-  const {
-    recommendation: rating,
-    confidence_score,
-    risk_level,
-    target_price_7d,
-    target_price_30d,
-    potential_upside_pct,
-    stop_loss_price,
-    risk_reward_ratio,
-    signals,
-    summary_analysis,
-    ai_thesis,
-    last_updated
-  } = recommendation;
+  const rating = typeof recommendation.recommendation === 'string' 
+    ? recommendation.recommendation 
+    : 'HOLD';
+  const confidence_score = Number(recommendation.confidence_score ?? 75);
+  const risk_level = recommendation.risk_level || 'Moderate';
+  
+  const currentPrice = Number(quote?.current_price || recommendation.current_price || 0);
+  const target_price_7d = Number(recommendation.target_price_7d || currentPrice);
+  const target_price_30d = Number(recommendation.target_price_30d || currentPrice);
+  const potential_upside_pct = Number(recommendation.potential_upside_pct || 0);
+  const stop_loss_price = Number(recommendation.stop_loss_price || (currentPrice * 0.95));
+  const risk_reward_ratio = Number(recommendation.risk_reward_ratio || 2.0);
+  
+  const signals = recommendation.signals || {};
+  const summary_analysis = recommendation.summary_analysis || 'Quantitative multi-factor analysis computed.';
 
-  const currentPrice = quote?.current_price || recommendation.current_price;
-
-  // Refined institutional badge styling (no giant cartoonish gradients)
+  // Refined institutional badge styling
   const getRatingBadge = (r) => {
     switch (r) {
       case 'STRONG BUY':
@@ -86,7 +85,6 @@ export default function RecommendationCard({ recommendation, quote, onOpenPaperT
   };
 
   const badge = getRatingBadge(rating);
-  const RatingIcon = badge.icon;
   const isPositiveUpside = potential_upside_pct >= 0;
 
   return (
@@ -143,7 +141,7 @@ export default function RecommendationCard({ recommendation, quote, onOpenPaperT
             Reference Price
           </span>
           <span className="text-base sm:text-lg font-black text-white font-mono tabular-nums">
-            ${currentPrice.toFixed(2)}
+            ${currentPrice > 0 ? currentPrice.toFixed(2) : '—'}
           </span>
           <span className="text-[10px] text-slate-500 block">Spot Market</span>
         </div>
@@ -154,7 +152,7 @@ export default function RecommendationCard({ recommendation, quote, onOpenPaperT
             7-Day Target
           </span>
           <span className="text-base sm:text-lg font-black text-sky-400 font-mono tabular-nums">
-            ${target_price_7d.toFixed(2)}
+            ${target_price_7d > 0 ? target_price_7d.toFixed(2) : '—'}
           </span>
           <span className="text-[10px] text-slate-500 block">Short Horizon</span>
         </div>
@@ -165,7 +163,7 @@ export default function RecommendationCard({ recommendation, quote, onOpenPaperT
             30-Day Target
           </span>
           <span className="text-base sm:text-lg font-black text-emerald-400 font-mono tabular-nums">
-            ${target_price_30d.toFixed(2)}
+            ${target_price_30d > 0 ? target_price_30d.toFixed(2) : '—'}
           </span>
           <span className="text-[10px] text-slate-500 block">Primary Target</span>
         </div>
@@ -189,7 +187,7 @@ export default function RecommendationCard({ recommendation, quote, onOpenPaperT
             Stop-Loss Floor
           </span>
           <span className="text-base sm:text-lg font-black text-rose-400 font-mono tabular-nums">
-            ${stop_loss_price.toFixed(2)}
+            ${stop_loss_price > 0 ? stop_loss_price.toFixed(2) : '—'}
           </span>
           <span className="text-[10px] text-slate-500 block">2.0x ATR Buffer</span>
         </div>
@@ -224,7 +222,7 @@ export default function RecommendationCard({ recommendation, quote, onOpenPaperT
                 AI Model Forecast
               </span>
               <span className="font-mono text-xs font-bold text-slate-200">
-                {signals?.ai_return ? `${signals.ai_return > 0 ? '+' : ''}${signals.ai_return.toFixed(1)}%` : '—'}
+                {signals?.ai_return !== undefined ? `${signals.ai_return > 0 ? '+' : ''}${Number(signals.ai_return).toFixed(1)}%` : '—'}
               </span>
             </div>
             <div className="w-full bg-[#182137] h-1.5 rounded-full overflow-hidden">
@@ -244,7 +242,7 @@ export default function RecommendationCard({ recommendation, quote, onOpenPaperT
                 News Sentiment
               </span>
               <span className="font-mono text-xs font-bold text-slate-200">
-                {signals?.sentiment_score ? `${signals.sentiment_score > 0 ? '+' : ''}${signals.sentiment_score.toFixed(2)}` : '0.00'}
+                {signals?.sentiment_score !== undefined ? `${signals.sentiment_score > 0 ? '+' : ''}${Number(signals.sentiment_score).toFixed(2)}` : '0.00'}
               </span>
             </div>
             <div className="w-full bg-[#182137] h-1.5 rounded-full overflow-hidden">
@@ -264,7 +262,7 @@ export default function RecommendationCard({ recommendation, quote, onOpenPaperT
                 Technical Trend
               </span>
               <span className="font-mono text-xs font-bold text-slate-200">
-                {signals?.technical_score ? `${signals.technical_score.toFixed(0)}/100` : '—'}
+                {signals?.technical_score !== undefined ? `${Number(signals.technical_score).toFixed(0)}/100` : '—'}
               </span>
             </div>
             <div className="w-full bg-[#182137] h-1.5 rounded-full overflow-hidden">

@@ -6,17 +6,13 @@ import {
   Briefcase, 
   Copy, 
   Check, 
-  Share2, 
-  BarChart2, 
-  TrendingUp, 
-  ShieldCheck,
   Building2,
   RefreshCw
 } from 'lucide-react';
 
 export default function StockHeader({ 
   quote, 
-  currentTicker, 
+  currentTicker = 'AAPL', 
   recommendation, 
   onOpenPaperTrade, 
   onRefresh, 
@@ -43,7 +39,7 @@ export default function StockHeader({
         const isPreMarket = isWeekday && totalMinutes >= 240 && totalMinutes < 570;
         const isPostMarket = isWeekday && totalMinutes >= 960 && totalMinutes < 1200;
 
-        let statusText = 'Closed';
+        let statusText = 'Market Closed';
         if (isOpen) {
           const minsToClose = 960 - totalMinutes;
           const h = Math.floor(minsToClose / 60);
@@ -54,7 +50,7 @@ export default function StockHeader({
         } else if (isPostMarket) {
           statusText = 'After-Hours Session';
         } else {
-          statusText = 'Weekend / Closed';
+          statusText = 'Closed (Weekend)';
         }
 
         const formattedTime = estDate.toLocaleTimeString('en-US', { 
@@ -76,39 +72,50 @@ export default function StockHeader({
   }, []);
 
   const handleCopyTicker = () => {
-    navigator.clipboard.writeText(currentTicker);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (currentTicker) {
+      navigator.clipboard.writeText(currentTicker);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
-  const price = quote?.current_price ?? 0;
-  const change = quote?.change ?? 0;
-  const changePct = quote?.change_percent ?? 0;
+  const price = Number(quote?.current_price ?? 0);
+  const change = Number(quote?.change ?? 0);
+  const changePct = Number(quote?.change_percent ?? 0);
   const isPositive = change >= 0;
 
   // 52-Week Range Calculations
-  const low52 = quote?.fifty_two_week_low || price * 0.75;
-  const high52 = quote?.fifty_two_week_high || price * 1.25;
+  const low52 = Number(quote?.fifty_two_week_low || (price > 0 ? price * 0.75 : 100));
+  const high52 = Number(quote?.fifty_two_week_high || (price > 0 ? price * 1.25 : 200));
   const range52Percent = high52 > low52 
     ? Math.min(100, Math.max(0, ((price - low52) / (high52 - low52)) * 100))
     : 50;
 
   // Format Large Currency (Market Cap)
   const formatMarketCap = (val) => {
-    if (!val) return '—';
-    if (val >= 1e12) return `$${(val / 1e12).toFixed(2)}T`;
-    if (val >= 1e9) return `$${(val / 1e9).toFixed(2)}B`;
-    if (val >= 1e6) return `$${(val / 1e6).toFixed(2)}M`;
-    return `$${val.toLocaleString()}`;
+    if (!val || isNaN(val)) return '—';
+    const num = Number(val);
+    if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
+    if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
+    if (num >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
+    return `$${num.toLocaleString()}`;
   };
 
   // Format Volume
   const formatVolume = (val) => {
-    if (!val) return '—';
-    if (val >= 1e6) return `${(val / 1e6).toFixed(2)}M`;
-    if (val >= 1e3) return `${(val / 1e3).toFixed(1)}k`;
-    return val.toLocaleString();
+    if (!val || isNaN(val)) return '—';
+    const num = Number(val);
+    if (num >= 1e6) return `${(num / 1e6).toFixed(2)}M`;
+    if (num >= 1e3) return `${(num / 1e3).toFixed(1)}k`;
+    return num.toLocaleString();
   };
+
+  // Safe Recommendation Rating Check
+  const recRating = typeof recommendation?.recommendation === 'string' 
+    ? recommendation.recommendation.toUpperCase() 
+    : '';
+  const isBuy = recRating.includes('BUY');
+  const isSell = recRating.includes('SELL');
 
   return (
     <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-5 shadow-lg shadow-black/20">
@@ -168,36 +175,38 @@ export default function StockHeader({
               {currentTicker}
             </h1>
             <span className="text-slate-400 text-sm font-medium truncate max-w-xs sm:max-w-md">
-              {quote?.company_name || 'Loading Asset Name...'}
+              {quote?.company_name || 'Loading Asset Intelligence...'}
             </span>
           </div>
 
           <div className="flex items-baseline gap-3 flex-wrap">
             <span className="text-3xl sm:text-4xl font-black text-white font-mono tabular-nums tracking-tight">
-              ${price.toFixed(2)}
+              ${price > 0 ? price.toFixed(2) : '—'}
             </span>
 
-            <div className={`flex items-center gap-1 text-sm sm:text-base font-semibold font-mono tabular-nums px-2.5 py-0.5 rounded-md ${
-              isPositive 
-                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-            }`}>
-              {isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-              <span>{isPositive ? '+' : ''}${Math.abs(change).toFixed(2)}</span>
-              <span>({isPositive ? '+' : ''}{changePct.toFixed(2)}%)</span>
-              <span className="text-[10px] text-slate-400 font-sans uppercase ml-1">Today</span>
-            </div>
+            {price > 0 && (
+              <div className={`flex items-center gap-1 text-sm sm:text-base font-semibold font-mono tabular-nums px-2.5 py-0.5 rounded-md ${
+                isPositive 
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+              }`}>
+                {isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                <span>{isPositive ? '+' : ''}${Math.abs(change).toFixed(2)}</span>
+                <span>({isPositive ? '+' : ''}{changePct.toFixed(2)}%)</span>
+                <span className="text-[10px] text-slate-400 font-sans uppercase ml-1">Today</span>
+              </div>
+            )}
 
-            {recommendation && (
+            {recRating && (
               <div className="flex items-center gap-2">
                 <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold font-sans uppercase tracking-wider ${
-                  recommendation.recommendation.includes('BUY')
+                  isBuy
                     ? 'bg-emerald-500 text-slate-950 shadow-sm'
-                    : recommendation.recommendation.includes('SELL')
+                    : isSell
                     ? 'bg-rose-500 text-white shadow-sm'
                     : 'bg-amber-500 text-slate-950'
                 }`}>
-                  {recommendation.recommendation}
+                  {recRating}
                 </span>
 
                 {onOpenPaperTrade && (
@@ -237,7 +246,7 @@ export default function StockHeader({
             >
               <div className="w-2.5 h-2.5 bg-white rounded-full shadow-md border-2 border-[#0E131F]" />
               <span className="text-[9px] font-mono font-bold text-slate-300 tracking-tighter mt-0.5">
-                ${price.toFixed(2)}
+                ${price > 0 ? price.toFixed(2) : '—'}
               </span>
             </div>
           </div>
@@ -258,14 +267,14 @@ export default function StockHeader({
         <div className="bg-[#080B11]/60 px-3 py-2 rounded-md border border-[#1E273B]/60">
           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">P/E Ratio (TTM)</span>
           <span className="font-mono font-bold text-slate-200 tabular-nums">
-            {quote?.pe_ratio ? `${quote.pe_ratio.toFixed(2)}x` : '—'}
+            {quote?.pe_ratio && !isNaN(quote.pe_ratio) ? `${Number(quote.pe_ratio).toFixed(2)}x` : '—'}
           </span>
         </div>
 
         <div className="bg-[#080B11]/60 px-3 py-2 rounded-md border border-[#1E273B]/60">
           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Day's Range</span>
           <span className="font-mono font-bold text-slate-200 tabular-nums">
-            ${quote?.day_low ? quote.day_low.toFixed(2) : '—'} - ${quote?.day_high ? quote.day_high.toFixed(2) : '—'}
+            ${quote?.day_low && !isNaN(quote.day_low) ? Number(quote.day_low).toFixed(2) : '—'} - ${quote?.day_high && !isNaN(quote.day_high) ? Number(quote.day_high).toFixed(2) : '—'}
           </span>
         </div>
 
@@ -286,7 +295,7 @@ export default function StockHeader({
         <div className="bg-[#080B11]/60 px-3 py-2 rounded-md border border-[#1E273B]/60">
           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">30D Forecast Target</span>
           <span className="font-mono font-bold text-sky-400 tabular-nums">
-            {recommendation?.target_price_30d ? `$${recommendation.target_price_30d.toFixed(2)}` : '—'}
+            {recommendation?.target_price_30d && !isNaN(recommendation.target_price_30d) ? `$${Number(recommendation.target_price_30d).toFixed(2)}` : '—'}
           </span>
         </div>
 

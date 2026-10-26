@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -14,8 +14,7 @@ import {
   Play,
   Clock,
   Send,
-  XCircle,
-  HelpCircle
+  XCircle
 } from 'lucide-react';
 
 export default function PaperTradingDesk({ 
@@ -23,7 +22,7 @@ export default function PaperTradingDesk({
   onExecuteOrder, 
   onResetAccount, 
   isLoading,
-  currentTicker,
+  currentTicker = 'AAPL',
   currentPrice = 200,
   suggestedStopLoss,
   suggestedTarget
@@ -37,7 +36,7 @@ export default function PaperTradingDesk({
   const [orderFeedback, setOrderFeedback] = useState(null);
 
   // Keep ticker in sync if currentTicker changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (currentTicker) {
       setTradeTicker(currentTicker);
       if (suggestedStopLoss) setStopLossInput(suggestedStopLoss);
@@ -93,6 +92,9 @@ export default function PaperTradingDesk({
     }
   };
 
+  const positionsList = Array.isArray(accountData?.positions) ? accountData.positions : [];
+  const historyList = Array.isArray(accountData?.trade_history) ? accountData.trade_history : [];
+
   if (isLoading || !accountData) {
     return (
       <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-8 h-[400px] flex flex-col items-center justify-center space-y-3">
@@ -103,20 +105,16 @@ export default function PaperTradingDesk({
     );
   }
 
-  const {
-    cash_balance,
-    portfolio_market_value,
-    total_equity,
-    total_pnl,
-    total_pnl_pct,
-    open_positions_count,
-    win_rate_pct,
-    positions,
-    trade_history
-  } = accountData;
+  const cash_balance = Number(accountData.cash_balance ?? 100000);
+  const portfolio_market_value = Number(accountData.portfolio_market_value ?? 0);
+  const total_equity = Number(accountData.total_equity ?? 100000);
+  const total_pnl = Number(accountData.total_pnl ?? 0);
+  const total_pnl_pct = Number(accountData.total_pnl_pct ?? 0);
+  const open_positions_count = Number(accountData.open_positions_count ?? positionsList.length);
+  const win_rate_pct = Number(accountData.win_rate_pct ?? 0);
 
   const isProfit = total_pnl >= 0;
-  const estimatedGross = Number(tradeShares || 0) * (currentPrice || 200);
+  const estimatedGross = Number(tradeShares || 0) * (Number(currentPrice) || 200);
   const estimatedSlippage = estimatedGross * 0.0015; // 15 bps
   const estimatedCommission = Number(tradeShares || 0) * 0.005;
 
@@ -301,7 +299,7 @@ export default function PaperTradingDesk({
             <div className="bg-[#080B11] p-3 rounded-lg border border-[#1E273B] space-y-1 font-mono text-[11px]">
               <div className="flex justify-between text-slate-400">
                 <span>Est. Share Price:</span>
-                <span className="text-slate-200 tabular-nums">${currentPrice ? currentPrice.toFixed(2) : '—'}</span>
+                <span className="text-slate-200 tabular-nums">${Number(currentPrice || 200).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-slate-400">
                 <span>Gross Value:</span>
@@ -360,12 +358,12 @@ export default function PaperTradingDesk({
             <div className="flex items-center justify-between pb-2 border-b border-[#1E273B]">
               <h3 className="font-bold text-white text-sm font-sans flex items-center gap-2">
                 <Layers className="w-4 h-4 text-sky-400" />
-                Active Open Positions ({positions.length})
+                Active Open Positions ({positionsList.length})
               </h3>
               <span className="text-[11px] font-mono text-slate-500">Auto Bracket Monitors Active</span>
             </div>
 
-            {positions.length === 0 ? (
+            {positionsList.length === 0 ? (
               <div className="p-8 text-center text-slate-500 text-xs font-mono">
                 No active positions currently open. Route a simulated order from the ticket to begin.
               </div>
@@ -385,27 +383,27 @@ export default function PaperTradingDesk({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#1E273B]/60 text-slate-300">
-                    {positions.map((pos) => {
-                      const posProfit = pos.unrealized_pnl >= 0;
+                    {positionsList.map((pos) => {
+                      const posProfit = Number(pos.unrealized_pnl || 0) >= 0;
                       return (
                         <tr key={pos.ticker} className="hover:bg-[#131A2B]/50 transition-colors">
                           <td className="py-2.5 font-bold text-white">{pos.ticker}</td>
                           <td className="py-2.5 tabular-nums">{pos.shares}</td>
-                          <td className="py-2.5 tabular-nums text-slate-400">${pos.entry_price.toFixed(2)}</td>
-                          <td className="py-2.5 tabular-nums font-semibold">${pos.current_price.toFixed(2)}</td>
-                          <td className="py-2.5 tabular-nums">${pos.market_value.toFixed(2)}</td>
+                          <td className="py-2.5 tabular-nums text-slate-400">${Number(pos.entry_price || 0).toFixed(2)}</td>
+                          <td className="py-2.5 tabular-nums font-semibold">${Number(pos.current_price || 0).toFixed(2)}</td>
+                          <td className="py-2.5 tabular-nums">${Number(pos.market_value || 0).toFixed(2)}</td>
                           <td className={`py-2.5 font-bold tabular-nums ${posProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {posProfit ? '+' : ''}${pos.unrealized_pnl.toFixed(2)}
+                            {posProfit ? '+' : ''}${Number(pos.unrealized_pnl || 0).toFixed(2)}
                             <span className="text-[10px] block opacity-80">
-                              ({posProfit ? '+' : ''}{pos.unrealized_pnl_pct.toFixed(2)}%)
+                              ({posProfit ? '+' : ''}{Number(pos.unrealized_pnl_pct || 0).toFixed(2)}%)
                             </span>
                           </td>
                           <td className="py-2.5 text-[10px] text-slate-400 space-y-0.5">
                             {pos.stop_loss_price && (
-                              <div className="text-rose-400">SL: ${pos.stop_loss_price.toFixed(2)}</div>
+                              <div className="text-rose-400">SL: ${Number(pos.stop_loss_price).toFixed(2)}</div>
                             )}
                             {pos.target_price && (
-                              <div className="text-emerald-400">TP: ${pos.target_price.toFixed(2)}</div>
+                              <div className="text-emerald-400">TP: ${Number(pos.target_price).toFixed(2)}</div>
                             )}
                             {!pos.stop_loss_price && !pos.target_price && <div>Manual</div>}
                           </td>
@@ -433,10 +431,10 @@ export default function PaperTradingDesk({
                 <Clock className="w-4 h-4 text-sky-400" />
                 Execution Ledger & Fill History
               </h3>
-              <span className="text-[11px] font-mono text-slate-500">{trade_history.length} Total Fills</span>
+              <span className="text-[11px] font-mono text-slate-500">{historyList.length} Total Fills</span>
             </div>
 
-            {trade_history.length === 0 ? (
+            {historyList.length === 0 ? (
               <div className="p-6 text-center text-slate-500 text-xs font-mono">
                 Order history ledger is empty.
               </div>
@@ -455,12 +453,12 @@ export default function PaperTradingDesk({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#1E273B]/40 text-slate-400 text-[11px]">
-                    {trade_history.slice(-8).reverse().map((trade) => {
+                    {historyList.slice(-8).reverse().map((trade) => {
                       const isBuy = trade.action === 'BUY';
                       return (
                         <tr key={trade.order_id} className="hover:bg-[#131A2B]/40">
                           <td className="py-1.5 text-slate-500 text-[10px]">
-                            {trade.timestamp.slice(11, 19)}
+                            {trade.timestamp ? trade.timestamp.slice(11, 19) : '—'}
                           </td>
                           <td className="py-1.5 text-slate-400">{trade.order_id}</td>
                           <td className="py-1.5">
@@ -472,9 +470,9 @@ export default function PaperTradingDesk({
                           </td>
                           <td className="py-1.5 font-bold text-slate-200">{trade.ticker}</td>
                           <td className="py-1.5 tabular-nums">{trade.shares}</td>
-                          <td className="py-1.5 tabular-nums text-slate-300">${trade.execution_price.toFixed(2)}</td>
+                          <td className="py-1.5 tabular-nums text-slate-300">${Number(trade.execution_price || 0).toFixed(2)}</td>
                           <td className="py-1.5 tabular-nums text-right text-slate-200 font-semibold">
-                            ${trade.total_value.toFixed(2)}
+                            ${Number(trade.total_value || 0).toFixed(2)}
                           </td>
                         </tr>
                       );

@@ -43,8 +43,18 @@ export default function StressTestCard({ stressTestData, onRunStressTest, isLoad
     );
   }
 
-  const { overall_resilience_score, scenarios, hedging_recommendations } = stressTestData;
-  const currentScenario = scenarios.find(s => s.scenario_id === selectedScenarioId) || scenarios[0];
+  const overall_resilience_score = Number(stressTestData.overall_resilience_score ?? 70);
+  const scenariosList = Array.isArray(stressTestData.scenarios) ? stressTestData.scenarios : [];
+  const hedging_recommendations = Array.isArray(stressTestData.hedging_recommendations) ? stressTestData.hedging_recommendations : [];
+  
+  const currentScenario = scenariosList.find(s => s.scenario_id === selectedScenarioId) || scenariosList[0] || {
+    name: 'Historical Crisis',
+    description: 'Systemic liquidity and macroeconomic shock.',
+    simulated_drawdown_pct: -25.0,
+    estimated_recovery_months: 12,
+    volatility_spike_multiplier: 1.8,
+    resilience_grade: 'B'
+  };
 
   const getGradeBadge = (grade) => {
     switch (grade) {
@@ -59,6 +69,9 @@ export default function StressTestCard({ stressTestData, onRunStressTest, isLoad
         return 'bg-rose-500/10 text-rose-400 border-rose-500/30';
     }
   };
+
+  const drawdownPct = Number(currentScenario.simulated_drawdown_pct || 0);
+  const capitalAtRisk = (Number(investmentAmount || 10000) * Math.abs(drawdownPct)) / 100;
 
   return (
     <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-6 shadow-xl shadow-black/20 space-y-6">
@@ -89,8 +102,10 @@ export default function StressTestCard({ stressTestData, onRunStressTest, isLoad
 
       {/* Scenario Selector Pills */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-        {scenarios.map(sc => {
+        {scenariosList.map(sc => {
           const isSelected = sc.scenario_id === selectedScenarioId;
+          const scDrawdown = Number(sc.simulated_drawdown_pct || 0);
+          const scMultiplier = Number(sc.volatility_spike_multiplier || 1);
           return (
             <button
               key={sc.scenario_id}
@@ -108,10 +123,10 @@ export default function StressTestCard({ stressTestData, onRunStressTest, isLoad
                 </span>
               </div>
               <div className="font-mono text-[11px] text-rose-400 font-bold tabular-nums">
-                {sc.simulated_drawdown_pct.toFixed(1)}% Max Loss
+                {scDrawdown.toFixed(1)}% Max Loss
               </div>
               <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                Vol: +{(sc.volatility_spike_multiplier * 100 - 100).toFixed(0)}%
+                Vol: +{(scMultiplier * 100 - 100).toFixed(0)}%
               </div>
             </button>
           );
@@ -126,9 +141,9 @@ export default function StressTestCard({ stressTestData, onRunStressTest, isLoad
             <p className="text-[11px] text-slate-400 font-sans mt-0.5">{currentScenario.description}</p>
           </div>
           <div className="text-right shrink-0">
-            <span className="text-[10px] text-slate-500 block">Est. Capital At Risk (${investmentAmount.toLocaleString()})</span>
+            <span className="text-[10px] text-slate-500 block">Est. Capital At Risk (${Number(investmentAmount || 10000).toLocaleString()})</span>
             <span className="text-sm font-black text-rose-400 font-mono tabular-nums">
-              -${(investmentAmount * Math.abs(currentScenario.simulated_drawdown_pct) / 100).toFixed(0)}
+              -${capitalAtRisk.toFixed(0)}
             </span>
           </div>
         </div>
@@ -138,7 +153,7 @@ export default function StressTestCard({ stressTestData, onRunStressTest, isLoad
           <div className="bg-[#0E131F] p-2.5 rounded border border-[#1E273B]">
             <span className="text-[10px] text-slate-500 uppercase block font-sans">Simulated Drawdown</span>
             <span className="text-sm font-bold text-rose-400 tabular-nums">
-              {currentScenario.simulated_drawdown_pct.toFixed(2)}%
+              {drawdownPct.toFixed(2)}%
             </span>
           </div>
           <div className="bg-[#0E131F] p-2.5 rounded border border-[#1E273B]">
@@ -150,13 +165,13 @@ export default function StressTestCard({ stressTestData, onRunStressTest, isLoad
           <div className="bg-[#0E131F] p-2.5 rounded border border-[#1E273B]">
             <span className="text-[10px] text-slate-500 uppercase block font-sans">Volatility Spike</span>
             <span className="text-sm font-bold text-amber-400 tabular-nums">
-              {currentScenario.volatility_spike_multiplier.toFixed(1)}x Normal
+              {Number(currentScenario.volatility_spike_multiplier || 1).toFixed(1)}x Normal
             </span>
           </div>
           <div className="bg-[#0E131F] p-2.5 rounded border border-[#1E273B]">
             <span className="text-[10px] text-slate-500 uppercase block font-sans">Tail VaR 99%</span>
             <span className="text-sm font-bold text-sky-400 tabular-nums">
-              {(Math.abs(currentScenario.simulated_drawdown_pct) * 0.72).toFixed(1)}% Daily
+              {(Math.abs(drawdownPct) * 0.72).toFixed(1)}% Daily
             </span>
           </div>
         </div>

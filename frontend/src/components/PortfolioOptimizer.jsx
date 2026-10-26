@@ -60,8 +60,8 @@ export default function PortfolioOptimizer({
     e.preventDefault();
     onOptimize({
       tickers: selectedTickers,
-      investment_amount: Number(investmentAmount),
-      risk_free_rate: Number(riskFreeRate),
+      investment_amount: Number(investmentAmount || 10000),
+      risk_free_rate: Number(riskFreeRate || 0.045),
       timeframe_years: 2
     });
   };
@@ -74,6 +74,11 @@ export default function PortfolioOptimizer({
       : portfolioData.equal_weight_portfolio
   ) : null;
 
+  const allocationsList = Array.isArray(currentResult?.allocations) ? currentResult.allocations : [];
+  const simList = Array.isArray(portfolioData?.simulated_portfolios) ? portfolioData.simulated_portfolios.slice(0, 350) : [];
+  const effList = Array.isArray(portfolioData?.efficient_frontier) ? portfolioData.efficient_frontier : [];
+  const tickersList = Array.isArray(portfolioData?.tickers) ? portfolioData.tickers : [];
+
   const CustomScatterTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -82,15 +87,15 @@ export default function PortfolioOptimizer({
           <div className="font-bold text-slate-200 font-sans">Simulated Allocation Vector</div>
           <div className="flex justify-between gap-4 text-sky-400">
             <span>Exp. Return:</span>
-            <span className="font-bold tabular-nums">+{data.return_rate}%</span>
+            <span className="font-bold tabular-nums">+{Number(data.return_rate || 0).toFixed(1)}%</span>
           </div>
           <div className="flex justify-between gap-4 text-slate-300">
             <span>Volatility:</span>
-            <span className="tabular-nums">{data.volatility}%</span>
+            <span className="tabular-nums">{Number(data.volatility || 0).toFixed(1)}%</span>
           </div>
           <div className="flex justify-between gap-4 text-emerald-400">
             <span>Sharpe Ratio:</span>
-            <span className="font-bold tabular-nums">{data.sharpe}</span>
+            <span className="font-bold tabular-nums">{Number(data.sharpe || 0).toFixed(2)}</span>
           </div>
         </div>
       );
@@ -205,7 +210,7 @@ export default function PortfolioOptimizer({
               <input
                 type="number"
                 step="0.005"
-                value={(riskFreeRate * 100).toFixed(1)}
+                value={(Number(riskFreeRate || 0.045) * 100).toFixed(1)}
                 onChange={(e) => setRiskFreeRate(Number(e.target.value) / 100)}
                 className="w-full px-3 py-1.5 bg-[#080B11] border border-[#1E273B] rounded-md text-xs font-mono font-bold text-white focus:outline-none focus:border-sky-500"
               />
@@ -250,7 +255,7 @@ export default function PortfolioOptimizer({
             <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-3 text-center">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">Expected Return</span>
               <span className="text-base sm:text-lg font-black text-emerald-400 font-mono tabular-nums">
-                +{currentResult.metrics.expected_annual_return_pct}%
+                +{Number(currentResult?.metrics?.expected_annual_return_pct || 0).toFixed(1)}%
               </span>
               <span className="text-[10px] text-slate-500 block">Annualized</span>
             </div>
@@ -258,7 +263,7 @@ export default function PortfolioOptimizer({
             <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-3 text-center">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">Annual Volatility</span>
               <span className="text-base sm:text-lg font-black text-sky-400 font-mono tabular-nums">
-                {currentResult.metrics.annual_volatility_pct}%
+                {Number(currentResult?.metrics?.annual_volatility_pct || 0).toFixed(1)}%
               </span>
               <span className="text-[10px] text-slate-500 block">Portfolio Risk</span>
             </div>
@@ -266,7 +271,7 @@ export default function PortfolioOptimizer({
             <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-3 text-center">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">Sharpe Ratio</span>
               <span className="text-base sm:text-lg font-black text-emerald-400 font-mono tabular-nums">
-                {currentResult.metrics.sharpe_ratio}
+                {Number(currentResult?.metrics?.sharpe_ratio || 0).toFixed(2)}
               </span>
               <span className="text-[10px] text-slate-500 block">Risk-Adjusted</span>
             </div>
@@ -274,7 +279,7 @@ export default function PortfolioOptimizer({
             <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-3 text-center">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">Sortino Ratio</span>
               <span className="text-base sm:text-lg font-black text-teal-300 font-mono tabular-nums">
-                {currentResult.metrics.sortino_ratio}
+                {Number(currentResult?.metrics?.sortino_ratio || 0).toFixed(2)}
               </span>
               <span className="text-[10px] text-slate-500 block">Downside Adjusted</span>
             </div>
@@ -282,7 +287,7 @@ export default function PortfolioOptimizer({
             <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-3 text-center">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">1-Day VaR (95%)</span>
               <span className="text-base sm:text-lg font-black text-rose-400 font-mono tabular-nums">
-                -{currentResult.metrics.var_95_pct}%
+                -{Number(currentResult?.metrics?.var_95_pct || 0).toFixed(2)}%
               </span>
               <span className="text-[10px] text-slate-500 block">Value-at-Risk</span>
             </div>
@@ -290,7 +295,7 @@ export default function PortfolioOptimizer({
             <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-3 text-center">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">1-Day CVaR (95%)</span>
               <span className="text-base sm:text-lg font-black text-rose-400 font-mono tabular-nums">
-                -{currentResult.metrics.cvar_95_pct}%
+                -{Number(currentResult?.metrics?.cvar_95_pct || 0).toFixed(2)}%
               </span>
               <span className="text-[10px] text-slate-500 block">Expected Shortfall</span>
             </div>
@@ -304,25 +309,25 @@ export default function PortfolioOptimizer({
               <h4 className="font-bold text-white text-xs uppercase tracking-wider flex items-center justify-between font-sans">
                 <span>Optimized Asset Weights & Capital Outlay</span>
                 <span className="text-xs text-slate-400 font-normal font-mono">
-                  ${investmentAmount.toLocaleString()} Total
+                  ${Number(investmentAmount || 10000).toLocaleString()} Total
                 </span>
               </h4>
 
               <div className="space-y-3">
-                {currentResult.allocations.map(alloc => (
+                {allocationsList.map(alloc => (
                   <div key={alloc.ticker} className="space-y-1">
                     <div className="flex justify-between items-center text-xs font-mono">
                       <span className="font-bold text-white">{alloc.ticker}</span>
                       <div className="flex items-center space-x-3">
-                        <span className="text-slate-400">{alloc.estimated_shares} sh</span>
-                        <span className="text-slate-200 font-semibold">${alloc.allocated_cash.toLocaleString()}</span>
-                        <span className="text-sky-400 font-bold">{alloc.weight}%</span>
+                        <span className="text-slate-400">{alloc.estimated_shares || 0} sh</span>
+                        <span className="text-slate-200 font-semibold">${Number(alloc.allocated_cash || 0).toLocaleString()}</span>
+                        <span className="text-sky-400 font-bold">{Number(alloc.weight || 0).toFixed(1)}%</span>
                       </div>
                     </div>
                     <div className="w-full bg-[#080B11] h-1.5 rounded-full overflow-hidden border border-[#1E273B]">
                       <div 
                         className="bg-sky-400 h-full rounded-full transition-all duration-500" 
-                        style={{ width: `${alloc.weight}%` }}
+                        style={{ width: `${Number(alloc.weight || 0)}%` }}
                       />
                     </div>
                   </div>
@@ -336,7 +341,7 @@ export default function PortfolioOptimizer({
                 <h4 className="font-bold text-white text-xs uppercase tracking-wider font-sans">
                   Markowitz Efficient Frontier & Monte Carlo Surface
                 </h4>
-                <span className="text-[11px] text-sky-400 font-mono font-semibold">1,500 Portfolios</span>
+                <span className="text-[11px] text-sky-400 font-mono font-semibold">{simList.length} Portfolios</span>
               </div>
 
               <div className="h-[260px] w-full">
@@ -367,7 +372,7 @@ export default function PortfolioOptimizer({
                     {/* Simulated Monte Carlo points */}
                     <Scatter 
                       name="Simulated Portfolios" 
-                      data={portfolioData.simulated_portfolios.slice(0, 350)} 
+                      data={simList} 
                       fill="#38bdf8" 
                       opacity={0.3} 
                     />
@@ -375,7 +380,7 @@ export default function PortfolioOptimizer({
                     {/* Efficient Frontier curve points */}
                     <Scatter 
                       name="Efficient Frontier" 
-                      data={portfolioData.efficient_frontier} 
+                      data={effList} 
                       fill="#38bdf8" 
                       line={{ stroke: '#38bdf8', strokeWidth: 2 }} 
                       shape="circle" 
@@ -397,17 +402,17 @@ export default function PortfolioOptimizer({
                 <thead>
                   <tr className="border-b border-[#1E273B]">
                     <th className="py-2 text-left text-slate-500">Asset</th>
-                    {portfolioData.tickers.map(t => (
+                    {tickersList.map(t => (
                       <th key={t} className="py-2 px-3 text-slate-400">{t}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#1E273B]/50">
-                  {portfolioData.tickers.map(t1 => (
+                  {tickersList.map(t1 => (
                     <tr key={t1} className="hover:bg-[#131A2B]/40">
                       <td className="py-2 text-left font-bold text-slate-200">{t1}</td>
-                      {portfolioData.tickers.map(t2 => {
-                        const val = portfolioData.correlation_matrix[t1]?.[t2] ?? 1.0;
+                      {tickersList.map(t2 => {
+                        const val = portfolioData?.correlation_matrix?.[t1]?.[t2] ?? 1.0;
                         const isHigh = val > 0.7 && t1 !== t2;
                         return (
                           <td 
@@ -420,7 +425,7 @@ export default function PortfolioOptimizer({
                                 : 'text-slate-300'
                             }`}
                           >
-                            {val.toFixed(2)}
+                            {Number(val).toFixed(2)}
                           </td>
                         );
                       })}

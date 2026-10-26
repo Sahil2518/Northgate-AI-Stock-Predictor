@@ -26,7 +26,9 @@ import {
 export default function PredictionChart({ predictionData, onHorizonChange, currentHorizon = 14, isLoading }) {
   const [activeModelView, setActiveModelView] = useState('all'); // 'all', 'ensemble', 'dl', 'ml'
 
-  if (isLoading || !predictionData) {
+  const predictionsList = Array.isArray(predictionData?.predictions) ? predictionData.predictions : [];
+
+  if (isLoading || !predictionData || predictionsList.length === 0) {
     return (
       <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-8 h-[460px] flex flex-col items-center justify-center space-y-3">
         <Cpu className="w-8 h-8 text-sky-400 animate-pulse" />
@@ -38,31 +40,37 @@ export default function PredictionChart({ predictionData, onHorizonChange, curre
 
   const {
     ticker,
-    current_price,
-    predicted_final_price,
-    expected_change_pct,
-    metrics,
-    predictions,
-    model_weights,
-    feature_importance
+    current_price = 0,
+    predicted_final_price = 0,
+    expected_change_pct = 0,
+    metrics = {},
+    model_weights = {},
+    feature_importance = {}
   } = predictionData;
 
   // Format data points for recharts
-  const chartData = predictions.map((pt) => ({
-    date: pt.date.slice(5), // 'MM-DD'
-    fullDate: pt.date,
-    actual: pt.actual_close !== null ? pt.actual_close : undefined,
-    ensemble: pt.predicted_close,
-    dl_lstm: pt.predicted_dl,
-    ml_xgb: pt.predicted_ml,
-    confidence_band: [pt.lower_bound_95, pt.upper_bound_95],
-    lower: pt.lower_bound_95,
-    upper: pt.upper_bound_95,
-    isForecast: pt.is_forecast
+  const chartData = predictionsList.map((pt) => ({
+    date: pt.date ? pt.date.slice(5) : '', // 'MM-DD'
+    fullDate: pt.date || '',
+    actual: pt.actual_close !== null && pt.actual_close !== undefined ? Number(pt.actual_close) : undefined,
+    ensemble: Number(pt.predicted_close || 0),
+    dl_lstm: Number(pt.predicted_dl || pt.predicted_close || 0),
+    ml_xgb: Number(pt.predicted_ml || pt.predicted_close || 0),
+    confidence_band: [Number(pt.lower_bound_95 || 0), Number(pt.upper_bound_95 || 0)],
+    lower: Number(pt.lower_bound_95 || 0),
+    upper: Number(pt.upper_bound_95 || 0),
+    isForecast: Boolean(pt.is_forecast)
   }));
 
-  const minPrice = Math.min(...predictions.map(p => p.lower_bound_95 || p.predicted_close)) * 0.985;
-  const maxPrice = Math.max(...predictions.map(p => p.upper_bound_95 || p.predicted_close)) * 1.015;
+  const allPrices = predictionsList.flatMap(p => [
+    p.lower_bound_95, 
+    p.upper_bound_95, 
+    p.predicted_close, 
+    p.actual_close
+  ]).filter(v => v !== null && v !== undefined && !isNaN(v) && v > 0);
+
+  const minPrice = allPrices.length > 0 ? Math.min(...allPrices) * 0.985 : 100;
+  const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) * 1.015 : 200;
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -100,7 +108,7 @@ export default function PredictionChart({ predictionData, onHorizonChange, curre
             <span className="font-mono tabular-nums">${dataPoint.ml_xgb.toFixed(2)}</span>
           </div>
 
-          {dataPoint.isForecast && dataPoint.lower && (
+          {dataPoint.isForecast && dataPoint.lower > 0 && (
             <div className="border-t border-[#1E273B] pt-1 text-[10px] text-slate-400 flex justify-between font-mono">
               <span>95% CI Range:</span>
               <span>${dataPoint.lower.toFixed(2)} - ${dataPoint.upper.toFixed(2)}</span>
@@ -112,7 +120,7 @@ export default function PredictionChart({ predictionData, onHorizonChange, curre
     return null;
   };
 
-  const isPositiveForecast = expected_change_pct >= 0;
+  const isPositiveForecast = Number(expected_change_pct) >= 0;
 
   return (
     <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-6 shadow-xl shadow-black/20 space-y-6">
@@ -154,27 +162,33 @@ export default function PredictionChart({ predictionData, onHorizonChange, curre
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-[#080B11] border border-[#1E273B] rounded-lg p-3">
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Target Forecast</span>
-          <span className="text-lg font-black font-mono text-white tabular-nums">${predicted_final_price.toFixed(2)}</span>
+          <span className="text-lg font-black font-mono text-white tabular-nums">
+            ${Number(predicted_final_price || 0).toFixed(2)}
+          </span>
           <span className="text-[10px] text-slate-500 block">Horizon End</span>
         </div>
 
         <div className="bg-[#080B11] border border-[#1E273B] rounded-lg p-3">
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Expected Return</span>
           <span className={`text-lg font-black font-mono tabular-nums ${isPositiveForecast ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {isPositiveForecast ? '+' : ''}{expected_change_pct.toFixed(2)}%
+            {isPositiveForecast ? '+' : ''}{Number(expected_change_pct || 0).toFixed(2)}%
           </span>
           <span className="text-[10px] text-slate-500 block">Relative to Spot</span>
         </div>
 
         <div className="bg-[#080B11] border border-[#1E273B] rounded-lg p-3">
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Directional Accuracy</span>
-          <span className="text-lg font-black font-mono text-sky-400 tabular-nums">{metrics?.directional_accuracy || 68.4}%</span>
+          <span className="text-lg font-black font-mono text-sky-400 tabular-nums">
+            {metrics?.directional_accuracy || 68.4}%
+          </span>
           <span className="text-[10px] text-slate-500 block">Backtested Hit-Rate</span>
         </div>
 
         <div className="bg-[#080B11] border border-[#1E273B] rounded-lg p-3">
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Model Error (MAE)</span>
-          <span className="text-lg font-black font-mono text-slate-300 tabular-nums">${metrics?.mae || '1.84'}</span>
+          <span className="text-lg font-black font-mono text-slate-300 tabular-nums">
+            ${metrics?.mae ? Number(metrics.mae).toFixed(2) : '1.84'}
+          </span>
           <span className="text-[10px] text-slate-500 block">Mean Absolute Error</span>
         </div>
       </div>
@@ -248,7 +262,6 @@ export default function PredictionChart({ predictionData, onHorizonChange, curre
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <defs>
-              {/* Confidence Band Gradient */}
               <linearGradient id="confidenceBand" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#38bdf8" stopOpacity={0.18} />
                 <stop offset="100%" stopColor="#38bdf8" stopOpacity={0.02} />
@@ -270,7 +283,7 @@ export default function PredictionChart({ predictionData, onHorizonChange, curre
               domain={[minPrice, maxPrice]} 
               stroke="#64748b" 
               fontSize={10} 
-              tickFormatter={(v) => `$${v.toFixed(0)}`}
+              tickFormatter={(v) => `$${Number(v || 0).toFixed(0)}`}
               tickLine={false}
               axisLine={{ stroke: '#1E273B' }}
               fontFamily="JetBrains Mono"
@@ -386,10 +399,10 @@ export default function PredictionChart({ predictionData, onHorizonChange, curre
               <div key={feat} className="space-y-0.5">
                 <div className="flex justify-between text-[11px] font-mono text-slate-300">
                   <span>{feat}</span>
-                  <span>{(score * 100).toFixed(0)}%</span>
+                  <span>{(Number(score || 0) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full bg-[#182137] h-1 rounded-full overflow-hidden">
-                  <div className="bg-sky-400 h-full rounded-full" style={{ width: `${score * 100}%` }} />
+                  <div className="bg-sky-400 h-full rounded-full" style={{ width: `${Number(score || 0) * 100}%` }} />
                 </div>
               </div>
             ))}
