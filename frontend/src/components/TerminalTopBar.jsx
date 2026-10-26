@@ -33,6 +33,8 @@ export default function TerminalTopBar({
   const [searchInput, setSearchInput] = useState('');
   const [copied, setCopied] = useState(false);
   const [marketStatus, setMarketStatus] = useState({ isOpen: false, text: 'Closed', estTime: '' });
+  const [priceFlash, setPriceFlash] = useState(null); // 'up' | 'down' | null
+  const prevPriceRef = useRef(null);
   const searchInputRef = useRef(null);
 
   // Global hotkey: '/' or 'Ctrl+K' focuses ticker search
@@ -117,6 +119,20 @@ export default function TerminalTopBar({
   const changePct = Number(quote?.change_percent || 0);
   const isPositive = change >= 0;
 
+  // Real-Time Micro-Tick Flash Detection (Green on uptick, Red on downtick)
+  useEffect(() => {
+    if (price > 0 && prevPriceRef.current !== null && price !== prevPriceRef.current) {
+      const direction = price > prevPriceRef.current ? 'up' : 'down';
+      setPriceFlash(direction);
+      const timer = setTimeout(() => {
+        setPriceFlash(null);
+      }, 750);
+      prevPriceRef.current = price;
+      return () => clearTimeout(timer);
+    }
+    prevPriceRef.current = price;
+  }, [price]);
+
   return (
     <header className="h-14 bg-[#0A0E17] border-b border-[#171D2B] flex items-center justify-between px-4 select-none shrink-0 z-20">
       
@@ -161,9 +177,15 @@ export default function TerminalTopBar({
 
       </div>
 
-      {/* Center: Live Asset Price & Ticker Banner */}
-      <div className="flex items-center space-x-4">
-        <div className="flex items-baseline space-x-2">
+      {/* Center: Live Asset Price & Dynamic Ticker Banner */}
+      <div className="flex items-center space-x-3">
+        <div className={`flex items-baseline space-x-2 px-2.5 py-1 rounded-lg border transition-all duration-300 ${
+          priceFlash === 'up'
+            ? 'bg-emerald-500/20 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.35)]'
+            : priceFlash === 'down'
+            ? 'bg-rose-500/20 border-rose-500/50 shadow-[0_0_12px_rgba(244,63,94,0.35)]'
+            : 'bg-transparent border-transparent'
+        }`}>
           <div className="flex items-center space-x-1.5">
             <span className="font-extrabold text-base text-white font-sans tracking-tight">
               {currentTicker}
@@ -173,12 +195,18 @@ export default function TerminalTopBar({
             </span>
           </div>
 
-          <span className="font-mono font-bold text-lg text-white tabular-nums tracking-tight">
+          <span className={`font-mono font-bold text-lg tabular-nums tracking-tight transition-colors duration-200 ${
+            priceFlash === 'up' 
+              ? 'text-emerald-300' 
+              : priceFlash === 'down' 
+              ? 'text-rose-300' 
+              : 'text-white'
+          }`}>
             ${price > 0 ? price.toFixed(2) : '—'}
           </span>
 
           {price > 0 && (
-            <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[11px] font-mono font-bold tabular-nums ${
+            <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[11px] font-mono font-bold tabular-nums transition-colors duration-200 ${
               isPositive 
                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
                 : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
@@ -187,6 +215,15 @@ export default function TerminalTopBar({
               {isPositive ? '+' : ''}{changePct.toFixed(2)}%
             </span>
           )}
+
+          {/* Real-Time Live Streaming Micro-Badge */}
+          <div className="hidden sm:flex items-center gap-1.5 ml-2 pl-2 border-l border-[#1E273B] text-[10px] font-mono text-emerald-400 font-semibold" title="24/7 Live Ticking Feed (4s Auto-Polling Active)">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="tracking-wider">LIVE</span>
+          </div>
         </div>
       </div>
 

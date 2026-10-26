@@ -16,7 +16,8 @@ class Settings(BaseModel):
         "TSLA", "META", "JPM", "V", "SPY"
     ]
     
-    CACHE_EXPIRATION_SECONDS: int = 300  # 5 minutes cache for market data
+    CACHE_EXPIRATION_SECONDS: int = 300  # 5 minutes cache for heavy market history
+    QUOTE_CACHE_EXPIRATION_SECONDS: int = 4  # 4 seconds cache for live ticking quotes
     NEWS_CACHE_EXPIRATION_SECONDS: int = 900  # 15 minutes cache for news
 
 settings = Settings()

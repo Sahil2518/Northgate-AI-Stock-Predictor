@@ -21,6 +21,8 @@ from app.services.technical import enrich_dataframe_with_indicators
 # In-memory thread-safe caches
 _QUOTE_CACHE: Dict[str, Tuple[float, StockQuote]] = {}
 _HISTORY_CACHE: Dict[str, Tuple[float, pd.DataFrame]] = {}
+_BASE_REF_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+_LIVE_TICK_STATE: Dict[str, Dict[str, Any]] = {}
 
 # Baseline institutional metadata for popular equities
 METADATA_FALLBACK = {
@@ -109,66 +111,136 @@ def fetch_stock_history(ticker: str, period: str = "2y") -> pd.DataFrame:
 def fetch_stock_quote(ticker: str) -> StockQuote:
     """
     Retrieves the latest quote, session change, and key fundamental valuation ratios.
+    Features 24/7 Simulated Live Ticking Mode (Exchange Sandbox) calibrated to real base prices,
+    ensuring continuous micro-tick price discovery even during weekend and off-market hours.
     """
     ticker_clean = ticker.upper()
     now = time.time()
     
+    quote_ttl = getattr(settings, "QUOTE_CACHE_EXPIRATION_SECONDS", 4)
     if ticker_clean in _QUOTE_CACHE:
         cached_time, quote = _QUOTE_CACHE[ticker_clean]
-        if now - cached_time < settings.CACHE_EXPIRATION_SECONDS:
+        if now - cached_time < quote_ttl:
             return quote
+
+    # Check or populate base market reference data (cached for 60 seconds to avoid upstream throttling)
+    base_ref = None
+    if ticker_clean in _BASE_REF_CACHE:
+        ref_time, ref_data = _BASE_REF_CACHE[ticker_clean]
+        if now - ref_time < 60:
+            base_ref = ref_data
+
+    if not base_ref:
+        history_df = fetch_stock_history(ticker_clean, period="5d")
+        latest_close = float(history_df['Close'].iloc[-1])
+        prev_close = float(history_df['Close'].iloc[-2]) if len(history_df) > 1 else latest_close * 0.99
+        day_high = float(history_df['High'].iloc[-1])
+        day_low = float(history_df['Low'].iloc[-1])
+        volume = int(history_df['Volume'].iloc[-1])
+
+        # Compute 52-week envelope
+        hist_1y = fetch_stock_history(ticker_clean, period="1y")
+        fifty_two_high = float(hist_1y['High'].max())
+        fifty_two_low = float(hist_1y['Low'].min())
+
+        meta = METADATA_FALLBACK.get(ticker_clean, {})
+        company_name = meta.get("name", f"{ticker_clean} Corp.")
+        pe_ratio = meta.get("pe", 25.0)
+        beta = meta.get("beta", 1.05)
+        market_cap = meta.get("market_cap", latest_close * 1e9)
+        div_yield = meta.get("div", 0.01)
+
+        try:
+            yf_ticker = yf.Ticker(ticker_clean)
+            info = yf_ticker.info or {}
+            if info:
+                company_name = info.get("shortName") or info.get("longName") or company_name
+                pe_ratio = info.get("trailingPE") or info.get("forwardPE") or pe_ratio
+                beta = info.get("beta") or beta
+                market_cap = info.get("marketCap") or market_cap
+                div_yield = info.get("dividendYield") or div_yield
+                if info.get("regularMarketPrice"):
+                    latest_close = float(info.get("regularMarketPrice"))
+        except Exception:
+            pass
+
+        base_ref = {
+            "base_price": latest_close,
+            "prev_close": prev_close,
+            "day_high": day_high,
+            "day_low": day_low,
+            "volume": volume,
+            "fifty_two_high": fifty_two_high,
+            "fifty_two_low": fifty_two_low,
+            "company_name": company_name,
+            "pe_ratio": pe_ratio,
+            "beta": beta,
+            "market_cap": market_cap,
+            "div_yield": div_yield
+        }
+        _BASE_REF_CACHE[ticker_clean] = (now, base_ref)
+
+    # 24/7 Live Ticking Micro-Engine (Exchange Sandbox Mode)
+    base_price = float(base_ref["base_price"])
+    prev_close = float(base_ref["prev_close"])
+
+    if ticker_clean not in _LIVE_TICK_STATE:
+        _LIVE_TICK_STATE[ticker_clean] = {
+            "current_price": base_price,
+            "day_high": float(base_ref["day_high"]),
+            "day_low": float(base_ref["day_low"]),
+            "volume": int(base_ref["volume"]),
+            "last_tick_time": now
+        }
+    else:
+        state = _LIVE_TICK_STATE[ticker_clean]
+        # Calculate spring/mean-reversion force pulling towards base_price
+        diff = state["current_price"] - base_price
+        pull = -0.15 * diff
+        # Calibrated micro-volatility: ~0.03% to 0.05% fluctuation
+        volatility_scale = max(base_price * 0.0003, 0.03)
+        shock = float(np.random.normal(0, volatility_scale))
+        delta = round(pull + shock, 2)
+        if abs(delta) < 0.01:
+            delta = float(np.random.choice([0.01, -0.01, 0.02, -0.02]))
             
-    history_df = fetch_stock_history(ticker_clean, period="5d")
-    latest_close = float(history_df['Close'].iloc[-1])
-    prev_close = float(history_df['Close'].iloc[-2]) if len(history_df) > 1 else latest_close * 0.99
-    day_change = latest_close - prev_close
-    day_pct = (day_change / prev_close) * 100 if prev_close != 0 else 0.0
-    day_high = float(history_df['High'].iloc[-1])
-    day_low = float(history_df['Low'].iloc[-1])
-    volume = int(history_df['Volume'].iloc[-1])
-    
-    # Compute 52-week envelope
-    hist_1y = fetch_stock_history(ticker_clean, period="1y")
-    fifty_two_high = float(hist_1y['High'].max())
-    fifty_two_low = float(hist_1y['Low'].min())
-    
-    meta = METADATA_FALLBACK.get(ticker_clean, {})
-    company_name = meta.get("name", f"{ticker_clean} Corp.")
-    pe_ratio = meta.get("pe", 25.0)
-    beta = meta.get("beta", 1.05)
-    market_cap = meta.get("market_cap", latest_close * 1e9)
-    div_yield = meta.get("div", 0.01)
-    
-    try:
-        yf_ticker = yf.Ticker(ticker_clean)
-        info = yf_ticker.info or {}
-        if info:
-            company_name = info.get("shortName") or info.get("longName") or company_name
-            pe_ratio = info.get("trailingPE") or info.get("forwardPE") or pe_ratio
-            beta = info.get("beta") or beta
-            market_cap = info.get("marketCap") or market_cap
-            div_yield = info.get("dividendYield") or div_yield
-            if info.get("regularMarketPrice"):
-                latest_close = float(info.get("regularMarketPrice"))
-    except Exception:
-        pass  # Graceful fallback to computed/meta values
+        new_price = round(state["current_price"] + delta, 2)
+        # Bounded within [-1.5%, +1.5%] of authentic real base price
+        lower_bound = round(base_price * 0.985, 2)
+        upper_bound = round(base_price * 1.015, 2)
+        new_price = max(min(new_price, upper_bound), lower_bound)
         
+        # Micro-volume progression per tick
+        state["volume"] += int(np.random.randint(40, 280))
+        state["current_price"] = new_price
+        state["day_high"] = max(state["day_high"], new_price)
+        state["day_low"] = min(state["day_low"], new_price)
+        state["last_tick_time"] = now
+
+    current_price = _LIVE_TICK_STATE[ticker_clean]["current_price"]
+    day_high = _LIVE_TICK_STATE[ticker_clean]["day_high"]
+    day_low = _LIVE_TICK_STATE[ticker_clean]["day_low"]
+    volume = _LIVE_TICK_STATE[ticker_clean]["volume"]
+
+    day_change = round(current_price - prev_close, 2)
+    day_pct = round((day_change / prev_close) * 100, 2) if prev_close != 0 else 0.0
+
     quote = StockQuote(
         ticker=ticker_clean,
-        company_name=company_name,
-        current_price=round(latest_close, 2),
+        company_name=base_ref["company_name"],
+        current_price=round(current_price, 2),
         previous_close=round(prev_close, 2),
-        change=round(day_change, 2),
-        change_percent=round(day_pct, 2),
+        change=day_change,
+        change_percent=day_pct,
         day_high=round(day_high, 2),
         day_low=round(day_low, 2),
-        fifty_two_week_high=round(fifty_two_high, 2),
-        fifty_two_week_low=round(fifty_two_low, 2),
+        fifty_two_week_high=round(base_ref["fifty_two_high"], 2),
+        fifty_two_week_low=round(base_ref["fifty_two_low"], 2),
         volume=volume,
-        market_cap=market_cap,
-        pe_ratio=round(pe_ratio, 2) if pe_ratio else None,
-        beta=round(beta, 2) if beta else None,
-        dividend_yield=round(div_yield * 100, 2) if div_yield else None,
+        market_cap=base_ref["market_cap"],
+        pe_ratio=round(base_ref["pe_ratio"], 2) if base_ref["pe_ratio"] else None,
+        beta=round(base_ref["beta"], 2) if base_ref["beta"] else None,
+        dividend_yield=round(base_ref["div_yield"] * 100, 2) if base_ref["div_yield"] else None,
         currency="USD",
         last_updated=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     )

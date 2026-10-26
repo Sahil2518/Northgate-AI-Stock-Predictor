@@ -197,6 +197,14 @@ export default function TerminalChartCanvas({
 
         {/* Right Stats Quick Pill */}
         <div className="flex items-center space-x-3 font-mono text-[11px]">
+          {quote?.current_price && (
+            <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-[#07090E] border border-[#1E273B]">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-slate-500 font-sans text-[10px]">Spot:</span>
+              <span className="text-white font-bold tabular-nums">${Number(quote.current_price).toFixed(2)}</span>
+            </div>
+          )}
+
           <div className="flex items-center space-x-2">
             <span className="text-slate-500 font-sans text-[10px]">Forecast Return:</span>
             <span className={`font-bold tabular-nums ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>

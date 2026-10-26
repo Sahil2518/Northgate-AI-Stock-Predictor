@@ -127,6 +127,41 @@ export default function App() {
     fetchTickerData(currentTicker);
   }, [currentTicker]);
 
+  // 3. Background Real-Time Auto-Polling (4s cadence for quotes, 8s for paper portfolio)
+  useEffect(() => {
+    if (!currentTicker) return;
+
+    const quotePollInterval = setInterval(async () => {
+      try {
+        // Silent poll: does NOT toggle global isLoading to prevent UI flickering or layout shifts
+        const freshQuote = await api.getQuote(currentTicker);
+        if (freshQuote && freshQuote.current_price !== undefined) {
+          setQuote(freshQuote);
+        }
+      } catch (err) {
+        // Silent failover
+      }
+    }, 4000);
+
+    return () => clearInterval(quotePollInterval);
+  }, [currentTicker]);
+
+  // Periodic paper account portfolio valuation sync (recalculates live equity as quotes drift)
+  useEffect(() => {
+    const accountSyncInterval = setInterval(async () => {
+      try {
+        const freshAcc = await api.getPaperAccount();
+        if (freshAcc) {
+          setPaperAccount(freshAcc);
+        }
+      } catch (err) {
+        // Silent failover
+      }
+    }, 8000);
+
+    return () => clearInterval(accountSyncInterval);
+  }, []);
+
   // 3. Fetch Neural Predictions on Ticker or Horizon Change
   useEffect(() => {
     let isSubscribed = true;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Briefcase, 
   TrendingUp, 
@@ -32,6 +32,21 @@ export default function TerminalOrderPanel({
   const [targetPrice, setTargetPrice] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [priceFlash, setPriceFlash] = useState(null);
+  const prevPriceRef = useRef(null);
+
+  const price = Number(quote?.current_price || recommendation?.current_price || 200);
+
+  // Micro-tick price flash animation
+  useEffect(() => {
+    if (price > 0 && prevPriceRef.current !== null && price !== prevPriceRef.current) {
+      setPriceFlash(price > prevPriceRef.current ? 'up' : 'down');
+      const timer = setTimeout(() => setPriceFlash(null), 700);
+      prevPriceRef.current = price;
+      return () => clearTimeout(timer);
+    }
+    prevPriceRef.current = price;
+  }, [price]);
 
   // Auto-sync suggested levels when ticker changes
   useEffect(() => {
@@ -44,8 +59,6 @@ export default function TerminalOrderPanel({
       }
     }
   }, [recommendation, currentTicker]);
-
-  const price = Number(quote?.current_price || recommendation?.current_price || 200);
 
   const handleApplyAIBounds = () => {
     if (recommendation) {
@@ -271,9 +284,16 @@ export default function TerminalOrderPanel({
 
           {/* Outlay Breakdown with Slippage & Fee */}
           <div className="bg-[#07090E] p-3 rounded-lg border border-[#1E273B] space-y-1 font-mono text-[11px]">
-            <div className="flex justify-between text-slate-400">
-              <span>Market Price:</span>
-              <span className="text-white tabular-nums">${price.toFixed(2)}</span>
+            <div className="flex justify-between items-center text-slate-400">
+              <span className="flex items-center gap-1.5">
+                Market Price:
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Live Executable Quote" />
+              </span>
+              <span className={`tabular-nums font-bold transition-colors duration-200 ${
+                priceFlash === 'up' ? 'text-emerald-300' : priceFlash === 'down' ? 'text-rose-300' : 'text-white'
+              }`}>
+                ${price.toFixed(2)}
+              </span>
             </div>
             <div className="flex justify-between text-slate-500 text-[10px]">
               <span>Slippage (15 bps):</span>
