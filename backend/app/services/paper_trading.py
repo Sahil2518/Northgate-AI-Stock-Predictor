@@ -177,7 +177,9 @@ def get_paper_account(user_id: Optional[int] = None) -> PaperAccountSummary:
         trade_history=history_objects,
         cash_transactions=cash_tx_objects,
         total_deposited=round(total_dep, 2),
-        total_withdrawn=round(total_wth, 2)
+        total_withdrawn=round(total_wth, 2),
+        currency="INR",
+        currency_symbol="₹"
     )
 
 def execute_paper_order(request: PaperOrderRequest, user_id: Optional[int] = None) -> PaperAccountSummary:

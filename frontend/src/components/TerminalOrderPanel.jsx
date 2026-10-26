@@ -36,6 +36,7 @@ export default function TerminalOrderPanel({
   const prevPriceRef = useRef(null);
 
   const price = Number(quote?.current_price || recommendation?.current_price || 200);
+  const currencySymbol = quote?.currency_symbol || accountData?.currency_symbol || (quote?.currency === 'USD' ? '$' : '₹');
 
   // Micro-tick price flash animation
   useEffect(() => {
@@ -82,7 +83,7 @@ export default function TerminalOrderPanel({
         stop_loss_price: stopLoss ? Number(stopLoss) : undefined,
         target_price: targetPrice ? Number(targetPrice) : undefined
       });
-      setFeedback({ type: 'success', text: `Filled ${action} ${shares} ${currentTicker} @ $${price.toFixed(2)}` });
+      setFeedback({ type: 'success', text: `Filled ${action} ${shares} ${currentTicker} @ ${currencySymbol}${price.toFixed(2)}` });
       setTimeout(() => setFeedback(null), 4000);
     } catch (err) {
       setFeedback({ type: 'error', text: err.response?.data?.detail || err.message || 'Execution failed' });
@@ -152,12 +153,12 @@ export default function TerminalOrderPanel({
         <div className="grid grid-cols-3 gap-2 pt-1 text-center font-mono">
           <div className="bg-[#0E1422] p-2 rounded-lg border border-[#1E273B]">
             <span className="text-[9px] text-slate-500 uppercase block font-sans">30D Target</span>
-            <span className="text-xs font-bold text-emerald-400 tabular-nums">${target30d.toFixed(2)}</span>
+            <span className="text-xs font-bold text-emerald-400 tabular-nums">{currencySymbol}{target30d.toFixed(2)}</span>
           </div>
 
           <div className="bg-[#0E1422] p-2 rounded-lg border border-[#1E273B]">
             <span className="text-[9px] text-slate-500 uppercase block font-sans">Stop-Loss</span>
-            <span className="text-xs font-bold text-rose-400 tabular-nums">${slFloor.toFixed(2)}</span>
+            <span className="text-xs font-bold text-rose-400 tabular-nums">{currencySymbol}{slFloor.toFixed(2)}</span>
           </div>
 
           <div className="bg-[#0E1422] p-2 rounded-lg border border-[#1E273B]">
@@ -257,7 +258,7 @@ export default function TerminalOrderPanel({
 
             <div className="grid grid-cols-2 gap-2 font-mono text-xs">
               <div>
-                <label className="text-[10px] text-rose-400 block mb-0.5 font-sans">Stop-Loss ($)</label>
+                <label className="text-[10px] text-rose-400 block mb-0.5 font-sans">Stop-Loss ({currencySymbol})</label>
                 <input
                   type="number"
                   step="0.01"
@@ -269,7 +270,7 @@ export default function TerminalOrderPanel({
               </div>
 
               <div>
-                <label className="text-[10px] text-emerald-400 block mb-0.5 font-sans">Take-Profit ($)</label>
+                <label className="text-[10px] text-emerald-400 block mb-0.5 font-sans">Take-Profit ({currencySymbol})</label>
                 <input
                   type="number"
                   step="0.01"
@@ -292,20 +293,20 @@ export default function TerminalOrderPanel({
               <span className={`tabular-nums font-bold transition-colors duration-200 ${
                 priceFlash === 'up' ? 'text-emerald-300' : priceFlash === 'down' ? 'text-rose-300' : 'text-white'
               }`}>
-                ${price.toFixed(2)}
+                {currencySymbol}{price.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between text-slate-500 text-[10px]">
               <span>Slippage (15 bps):</span>
-              <span className="tabular-nums">-${slippage.toFixed(2)}</span>
+              <span className="tabular-nums">-{currencySymbol}{slippage.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-slate-500 text-[10px]">
-              <span>Commission ($0.005/sh):</span>
-              <span className="tabular-nums">-${commission.toFixed(2)}</span>
+              <span>Est. Exchange Brokerage:</span>
+              <span className="tabular-nums">-{currencySymbol}{commission.toFixed(2)}</span>
             </div>
             <div className="border-t border-[#1E273B] pt-1 flex justify-between font-bold text-white text-xs">
               <span>Estimated Outlay:</span>
-              <span className="text-sky-400 tabular-nums">${estimatedTotal.toFixed(2)}</span>
+              <span className="text-sky-400 tabular-nums">{currencySymbol}{estimatedTotal.toFixed(2)}</span>
             </div>
           </div>
 
@@ -314,7 +315,7 @@ export default function TerminalOrderPanel({
             <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="text-[11px] font-sans">Account Unfunded ($0.00 cash)</span>
+                <span className="text-[11px] font-sans">Account Unfunded ({currencySymbol}0.00 cash)</span>
               </div>
               <button
                 type="button"
@@ -379,18 +380,18 @@ export default function TerminalOrderPanel({
 
         <div className="flex justify-between items-center text-sm font-bold text-white">
           <span className="text-slate-400 text-xs font-normal">Total Equity:</span>
-          <span className="tabular-nums">${totalEquity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span className="tabular-nums">{currencySymbol}{totalEquity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
 
         <div className="flex justify-between items-center text-[11px] text-slate-400">
           <span>Buying Power:</span>
-          <span className="text-sky-400 tabular-nums font-semibold">${cashBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span className="text-sky-400 tabular-nums font-semibold">{currencySymbol}{cashBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
 
         <div className="flex justify-between items-center text-[11px]">
           <span className="text-slate-400">Net Return:</span>
           <span className={`tabular-nums font-bold ${isPnlPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {isPnlPositive ? '+' : ''}${totalPnl.toFixed(2)}
+            {isPnlPositive ? '+' : ''}{currencySymbol}{totalPnl.toFixed(2)}
           </span>
         </div>
 

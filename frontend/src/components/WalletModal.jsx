@@ -27,15 +27,16 @@ export default function WalletModal({
   brokerStatus
 }) {
   const [activeTab, setActiveTab] = useState('deposit'); // 'deposit', 'withdraw', 'ledger', 'liveBroker'
-  const [depositAmount, setDepositAmount] = useState('10000');
-  const [depositMethod, setDepositMethod] = useState('ACH');
-  const [withdrawAmount, setWithdrawAmount] = useState('5000');
-  const [withdrawMethod, setWithdrawMethod] = useState('ACH');
+  const [depositAmount, setDepositAmount] = useState('25000');
+  const [depositMethod, setDepositMethod] = useState('UPI');
+  const [withdrawAmount, setWithdrawAmount] = useState('10000');
+  const [withdrawMethod, setWithdrawMethod] = useState('UPI');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
   if (!isOpen) return null;
 
+  const currencySymbol = accountData?.currency_symbol || '₹';
   const cash = Number(accountData?.cash_balance ?? 0);
   const totalEquity = Number(accountData?.total_equity ?? 0);
   const totalDeposited = Number(accountData?.total_deposited ?? 0);
@@ -46,14 +47,14 @@ export default function WalletModal({
     e.preventDefault();
     const val = Number(depositAmount);
     if (!val || val <= 0) {
-      setFeedback({ type: 'error', text: 'Please enter a valid deposit amount greater than $0.' });
+      setFeedback({ type: 'error', text: `Please enter a valid deposit amount greater than ${currencySymbol}0.` });
       return;
     }
     setIsSubmitting(true);
     setFeedback(null);
     try {
       await onDeposit(val, depositMethod);
-      setFeedback({ type: 'success', text: `Successfully credited $${val.toLocaleString()} via ${depositMethod}.` });
+      setFeedback({ type: 'success', text: `Successfully credited ${currencySymbol}${val.toLocaleString()} via ${depositMethod}.` });
       setTimeout(() => setFeedback(null), 4000);
     } catch (err) {
       setFeedback({ type: 'error', text: err.response?.data?.detail || err.message || 'Deposit failed' });
@@ -66,18 +67,18 @@ export default function WalletModal({
     e.preventDefault();
     const val = Number(withdrawAmount);
     if (!val || val <= 0) {
-      setFeedback({ type: 'error', text: 'Please enter a valid withdrawal amount greater than $0.' });
+      setFeedback({ type: 'error', text: `Please enter a valid withdrawal amount greater than ${currencySymbol}0.` });
       return;
     }
     if (val > cash) {
-      setFeedback({ type: 'error', text: `Insufficient cash balance. You have $${cash.toLocaleString()} available.` });
+      setFeedback({ type: 'error', text: `Insufficient cash balance. You have ${currencySymbol}${cash.toLocaleString()} available.` });
       return;
     }
     setIsSubmitting(true);
     setFeedback(null);
     try {
       await onWithdraw(val, withdrawMethod);
-      setFeedback({ type: 'success', text: `Successfully processed withdrawal of $${val.toLocaleString()} to linked bank.` });
+      setFeedback({ type: 'success', text: `Successfully processed withdrawal of ${currencySymbol}${val.toLocaleString()} to linked bank.` });
       setTimeout(() => setFeedback(null), 4000);
     } catch (err) {
       setFeedback({ type: 'error', text: err.response?.data?.detail || err.message || 'Withdrawal failed' });
@@ -131,20 +132,20 @@ export default function WalletModal({
           <div>
             <span className="text-[10px] uppercase font-mono text-slate-500 block">Available Cash</span>
             <span className={`text-base font-bold font-mono ${cash <= 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
-              ${cash.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {currencySymbol}{cash.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
           <div>
             <span className="text-[10px] uppercase font-mono text-slate-500 block">Total Portfolio NAV</span>
             <span className="text-base font-bold font-mono text-white">
-              ${totalEquity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {currencySymbol}{totalEquity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
           <div>
             <span className="text-[10px] uppercase font-mono text-slate-500 block">Account Status</span>
             <span className={`text-xs font-semibold flex items-center gap-1 mt-0.5 ${cash <= 0 ? 'text-amber-400' : 'text-sky-400'}`}>
               {cash <= 0 ? <AlertCircle className="w-3 h-3 text-amber-400" /> : <Zap className="w-3 h-3 text-sky-400" />}
-              {cash <= 0 ? 'Unfunded ($0.00)' : 'Active (Funded)'}
+              {cash <= 0 ? `Unfunded (${currencySymbol}0.00)` : 'Active (Funded)'}
             </span>
           </div>
         </div>
@@ -465,14 +466,21 @@ export default function WalletModal({
               <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-200 space-y-2">
                 <div className="flex items-center gap-2 font-bold text-sm text-purple-100">
                   <ShieldCheck className="w-4 h-4 text-purple-400" />
-                  <span>How Real Stock Purchases Work in the US</span>
+                  <span>Real Stock Trading via Official Broker APIs (NSE / BSE & Global)</span>
                 </div>
                 <p className="text-[11px] leading-relaxed text-purple-200/90">
-                  Unlike cryptocurrencies (which use decentralized web3 wallets like MetaMask), buying shares of publicly traded companies on the <strong>NASDAQ</strong> and <strong>NYSE</strong> requires strict compliance under US federal law (<strong>SEC</strong> and <strong>FINRA</strong> regulations, plus <strong>SIPC</strong> insurance up to $500,000).
+                  Northgate AI connects directly to exchange-licensed broker APIs to execute real trades, fetch live demat holdings, and check live margin balances without manual broker login.
                 </p>
-                <p className="text-[11px] leading-relaxed text-purple-200/90">
-                  To execute trades with real fiat money, the platform connects to a registered clearing broker (like <strong>Alpaca Securities LLC</strong> or <strong>Interactive Brokers</strong>) via institutional REST & WebSocket APIs.
-                </p>
+                <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-[10px]">
+                  <div className="p-2 rounded bg-[#07090E]/60 border border-purple-500/20">
+                    <span className="text-emerald-400 font-bold block">Dhan HQ API</span>
+                    <span>100% Free NSE/BSE REST & WebSocket gateway. Instant token in Dhan App.</span>
+                  </div>
+                  <div className="p-2 rounded bg-[#07090E]/60 border border-purple-500/20">
+                    <span className="text-sky-400 font-bold block">Angel One SmartAPI</span>
+                    <span>Free developer portal with automated TOTP 2FA authentication.</span>
+                  </div>
+                </div>
               </div>
 
               {/* Active Broker Engine Box */}
@@ -480,35 +488,49 @@ export default function WalletModal({
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-white text-xs">Active Broker Adapter Layer</span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    {brokerStatus?.active_broker || 'Northgate Simulated Brokerage'}
+                    {brokerStatus?.active_broker || 'Northgate Virtual Brokerage'}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 text-[11px] font-mono">
+                <div className="grid grid-cols-3 gap-3 text-[11px] font-mono">
                   <div className="bg-[#07090E] p-2.5 rounded-lg border border-[#171D2B]">
-                    <span className="text-slate-500 block text-[10px]">Execution Mode:</span>
-                    <span className="text-amber-400 font-bold">
-                      {brokerStatus?.paper_mode ? 'Virtual Sandbox (Simulated)' : 'Live Exchange Direct'}
+                    <span className="text-slate-500 block text-[10px]">Gateway Protocol:</span>
+                    <span className="text-sky-300 font-bold">
+                      {brokerStatus?.broker_type || 'LOCAL_PAPER'}
                     </span>
                   </div>
                   <div className="bg-[#07090E] p-2.5 rounded-lg border border-[#171D2B]">
-                    <span className="text-slate-500 block text-[10px]">Adapter Latency:</span>
+                    <span className="text-slate-500 block text-[10px]">Execution Mode:</span>
+                    <span className="text-amber-400 font-bold">
+                      {brokerStatus?.paper_mode ? 'Simulation (Safety)' : 'Live Exchange Direct'}
+                    </span>
+                  </div>
+                  <div className="bg-[#07090E] p-2.5 rounded-lg border border-[#171D2B]">
+                    <span className="text-slate-500 block text-[10px]">Latency:</span>
                     <span className="text-emerald-400 font-bold">
                       {brokerStatus?.latency_ms ?? 1.2} ms
                     </span>
                   </div>
                 </div>
 
-                <div>
-                  <span className="text-[11px] text-slate-400 font-semibold block mb-1">
-                    To Enable Live Exchange Execution with Real Money:
+                <div className="space-y-2 pt-2 border-t border-[#171D2B]">
+                  <span className="text-[11px] text-slate-300 font-semibold block">
+                    How to Connect Your Real Broker in 2 Minutes:
                   </span>
-                  <ol className="list-decimal list-inside space-y-1 text-slate-400 text-[11px]">
-                    <li>Open an account at <a href="https://alpaca.markets" target="_blank" rel="noreferrer" className="text-sky-400 underline inline-flex items-center gap-0.5">Alpaca Markets <ExternalLink className="w-2.5 h-2.5" /></a> (SEC / FINRA registered).</li>
-                    <li>Complete KYC identity verification and link your US bank checking account.</li>
-                    <li>Generate your live API Key & Secret Key in the Alpaca Dashboard.</li>
-                    <li>Add <code className="px-1.5 py-0.5 bg-[#07090E] border border-[#1E273B] rounded text-sky-300 font-mono">ALPACA_API_KEY</code> and <code className="px-1.5 py-0.5 bg-[#07090E] border border-[#1E273B] rounded text-sky-300 font-mono">ALPACA_SECRET_KEY</code> to your environment file.</li>
-                  </ol>
+                  
+                  <div className="space-y-2 text-slate-400 text-[11px]">
+                    <div className="p-2.5 rounded-lg bg-[#07090E] border border-[#1E273B] space-y-1">
+                      <span className="font-bold text-emerald-400">Option 1: Dhan HQ API (Fastest & Free)</span>
+                      <p className="text-[10px]">1. Open Dhan app &rarr; Profile &rarr; <strong>DhanHQ APIs</strong> &rarr; Generate Access Token.</p>
+                      <p className="text-[10px]">2. Set in <code className="text-sky-300 font-mono">.env</code>: <code className="text-sky-300 font-mono">DHAN_CLIENT_ID</code> and <code className="text-sky-300 font-mono">DHAN_ACCESS_TOKEN</code>.</p>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-[#07090E] border border-[#1E273B] space-y-1">
+                      <span className="font-bold text-sky-400">Option 2: Angel One SmartAPI (Free)</span>
+                      <p className="text-[10px]">1. Go to <a href="https://smartapi.angelbroking.com" target="_blank" rel="noreferrer" className="text-sky-400 underline inline-flex items-center gap-0.5">smartapi.angelbroking.com <ExternalLink className="w-2.5 h-2.5" /></a> &rarr; Create App &rarr; Get API Key.</p>
+                      <p className="text-[10px]">2. Set in <code className="text-sky-300 font-mono">.env</code>: <code className="text-sky-300 font-mono">ANGEL_API_KEY</code>, <code className="text-sky-300 font-mono">ANGEL_CLIENT_CODE</code>, <code className="text-sky-300 font-mono">ANGEL_PIN</code>, <code className="text-sky-300 font-mono">ANGEL_TOTP_KEY</code>.</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 

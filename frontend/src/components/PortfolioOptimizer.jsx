@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import StressTestCard from './StressTestCard';
 
-const CANDIDATE_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'SPY', 'JPM', 'V'];
+const CANDIDATE_TICKERS = ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'TATAMOTORS', 'SBIN', 'ITC', 'ICICIBANK', 'AAPL', 'NVDA', 'MSFT'];
 
 export default function PortfolioOptimizer({ 
   portfolioData, 
@@ -36,10 +36,10 @@ export default function PortfolioOptimizer({
   onRunStressTest,
   isStressLoading
 }) {
-  const [selectedTickers, setSelectedTickers] = useState(['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA']);
+  const [selectedTickers, setSelectedTickers] = useState(['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'TATAMOTORS']);
   const [newTickerInput, setNewTickerInput] = useState('');
-  const [investmentAmount, setInvestmentAmount] = useState(10000);
-  const [riskFreeRate, setRiskFreeRate] = useState(0.045);
+  const [investmentAmount, setInvestmentAmount] = useState(100000);
+  const [riskFreeRate, setRiskFreeRate] = useState(0.065); // Indian 10Y G-Sec / RBI Benchmark ~6.5%
   const [activeStrategy, setActiveStrategy] = useState('max_sharpe'); // 'max_sharpe', 'min_vol', 'equal_weight'
 
   const handleAddTicker = (t) => {
@@ -190,7 +190,7 @@ export default function PortfolioOptimizer({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1 font-sans">
-                Portfolio Capital ($)
+                Portfolio Capital (₹)
               </span>
               <div className="relative">
                 <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />

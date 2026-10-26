@@ -62,8 +62,11 @@ def extract_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     # Target: T+1 Close Price
     target = close.shift(-1)
     
-    valid_idx = features.dropna().index.intersection(target.dropna().index)
-    return features.loc[valid_idx], target.loc[valid_idx]
+    # Sanitize infinities and NaNs
+    features_clean = features.replace([np.inf, -np.inf], np.nan)
+    target_clean = target.replace([np.inf, -np.inf], np.nan)
+    valid_idx = features_clean.dropna().index.intersection(target_clean.dropna().index)
+    return features_clean.loc[valid_idx], target_clean.loc[valid_idx]
 
 
 def train_and_predict_ml(df: pd.DataFrame, horizon_days: int = 14) -> Dict[str, Any]:

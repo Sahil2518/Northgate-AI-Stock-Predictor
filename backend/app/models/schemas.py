@@ -22,7 +22,9 @@ class StockQuote(BaseModel):
     pe_ratio: Optional[float] = None
     beta: Optional[float] = None
     dividend_yield: Optional[float] = None
-    currency: str = "USD"
+    currency: str = "INR"
+    currency_symbol: str = "₹"
+    exchange: str = "NSE"
     last_updated: str
 
 class HistoricalPricePoint(BaseModel):
@@ -295,9 +297,13 @@ class PaperAccountSummary(BaseModel):
     cash_transactions: Optional[List[CashTransactionRecord]] = []
     total_deposited: Optional[float] = 0.0
     total_withdrawn: Optional[float] = 0.0
+    currency: Optional[str] = "INR"
+    currency_symbol: Optional[str] = "₹"
 
 class BrokerStatusResponse(BaseModel):
     active_broker: str
+    broker_type: Optional[str] = "LOCAL_PAPER"
+    exchange: Optional[str] = "NSE"
     is_live_connected: bool
     paper_mode: bool
     latency_ms: float

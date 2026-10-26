@@ -16,7 +16,7 @@ import {
   User
 } from 'lucide-react';
 
-const QUICK_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'TSLA', 'GOOGL', 'AMZN', 'META', 'SPY'];
+const QUICK_TICKERS = ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'TATAMOTORS', 'SBIN', 'ITC', 'AAPL', 'NVDA'];
 
 export default function TerminalTopBar({
   currentTicker,
@@ -32,7 +32,7 @@ export default function TerminalTopBar({
 }) {
   const [searchInput, setSearchInput] = useState('');
   const [copied, setCopied] = useState(false);
-  const [marketStatus, setMarketStatus] = useState({ isOpen: false, text: 'Closed', estTime: '' });
+  const [marketStatus, setMarketStatus] = useState({ isOpen: false, text: 'NSE Closed', estTime: '' });
   const [priceFlash, setPriceFlash] = useState(null); // 'up' | 'down' | null
   const prevPriceRef = useRef(null);
   const searchInputRef = useRef(null);
@@ -50,38 +50,38 @@ export default function TerminalTopBar({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Calculate US Market Session (NYSE / NASDAQ hours: 09:30 - 16:00 EST, Mon-Fri)
+  // Calculate Indian Market Session (NSE / BSE hours: 09:15 - 15:30 IST, Mon-Fri)
   useEffect(() => {
     const updateMarketStatus = () => {
       try {
         const now = new Date();
-        const estStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
-        const estDate = new Date(estStr);
-        const day = estDate.getDay();
-        const hours = estDate.getHours();
-        const minutes = estDate.getMinutes();
+        const istStr = now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+        const istDate = new Date(istStr);
+        const day = istDate.getDay();
+        const hours = istDate.getHours();
+        const minutes = istDate.getMinutes();
         const totalMinutes = hours * 60 + minutes;
 
         const isWeekday = day >= 1 && day <= 5;
-        const isOpen = isWeekday && totalMinutes >= 570 && totalMinutes < 960;
-        const isPreMarket = isWeekday && totalMinutes >= 240 && totalMinutes < 570;
-        const isPostMarket = isWeekday && totalMinutes >= 960 && totalMinutes < 1200;
+        const isOpen = isWeekday && totalMinutes >= 555 && totalMinutes < 930; // 09:15 to 15:30
+        const isPreMarket = isWeekday && totalMinutes >= 540 && totalMinutes < 555; // 09:00 to 09:15
+        const isPostMarket = isWeekday && totalMinutes >= 940 && totalMinutes < 960; // 15:40 to 16:00
 
-        let statusText = 'Closed';
+        let statusText = 'NSE Closed';
         if (isOpen) {
-          const minsToClose = 960 - totalMinutes;
+          const minsToClose = 930 - totalMinutes;
           const h = Math.floor(minsToClose / 60);
           const m = minsToClose % 60;
-          statusText = `Market Open · Closes in ${h}h ${m}m`;
+          statusText = `NSE Open · Closes in ${h}h ${m}m`;
         } else if (isPreMarket) {
-          statusText = 'Pre-Market';
+          statusText = 'NSE Pre-Market';
         } else if (isPostMarket) {
-          statusText = 'After-Hours';
+          statusText = 'NSE Post-Market';
         } else {
-          statusText = 'Weekend / Closed';
+          statusText = 'NSE Weekend / Closed';
         }
 
-        const formattedTime = estDate.toLocaleTimeString('en-US', { 
+        const formattedTime = istDate.toLocaleTimeString('en-US', { 
           hour: '2-digit', 
           minute: '2-digit', 
           second: '2-digit',
@@ -90,7 +90,7 @@ export default function TerminalTopBar({
 
         setMarketStatus({ isOpen, text: statusText, estTime: formattedTime });
       } catch (e) {
-        setMarketStatus({ isOpen: false, text: 'US Equity Hours', estTime: 'EST' });
+        setMarketStatus({ isOpen: false, text: 'NSE / BSE Hours', estTime: 'IST' });
       }
     };
 
@@ -118,6 +118,7 @@ export default function TerminalTopBar({
   const change = Number(quote?.change || 0);
   const changePct = Number(quote?.change_percent || 0);
   const isPositive = change >= 0;
+  const currencySymbol = quote?.currency_symbol || (quote?.currency === 'USD' ? '$' : '₹');
 
   // Real-Time Micro-Tick Flash Detection (Green on uptick, Red on downtick)
   useEffect(() => {
@@ -202,7 +203,7 @@ export default function TerminalTopBar({
               ? 'text-rose-300' 
               : 'text-white'
           }`}>
-            ${price > 0 ? price.toFixed(2) : '—'}
+            {currencySymbol}{price > 0 ? price.toFixed(2) : '—'}
           </span>
 
           {price > 0 && (
@@ -254,7 +255,7 @@ export default function TerminalTopBar({
         >
           <Wallet className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
           <span className="font-bold text-[11px] tabular-nums">
-            ${Number(cashBalance).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            {currencySymbol}{Number(cashBalance).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
           </span>
           <span className="text-[10px] text-slate-400 font-sans hidden md:inline">Cash</span>
         </button>

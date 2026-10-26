@@ -377,3 +377,74 @@ def run_portfolio_stress_test(request: StressTestRequest) -> StressTestResponse:
         hedging_recommendations=recs
     )
 
+
+def ledoit_wolf_shrinkage(returns_df: pd.DataFrame) -> np.ndarray:
+    """
+    Ledoit-Wolf covariance shrinkage (Listing 11.1 in PRD).
+    Stabilizes sample covariance matrix Sigma by shrinking sample estimates toward
+    a structured target matrix, preventing extreme corner-weight allocations.
+    """
+    sample_cov = returns_df.cov().values
+    n, p = returns_df.shape
+    if n < 5:
+        return sample_cov
+    # Target: average variance on diagonal, zero off-diagonal
+    mu_var = float(np.mean(np.diag(sample_cov)))
+    target = np.eye(p) * mu_var
+    # Shrinkage intensity delta (bounded between 0.05 and 0.25)
+    delta = min(0.25, max(0.05, 1.0 / np.sqrt(n)))
+    shrunk_cov = (1.0 - delta) * sample_cov + delta * target
+    return shrunk_cov
+
+
+def compute_rebalancing_plan(current_weights: Dict[str, float], target_weights: Dict[str, float], band: float = 0.05) -> Dict[str, Any]:
+    """
+    Transparent rule-based rebalancing engine (Listing 12.1 in PRD).
+    Calculates allocation drift (target - current).
+    If |drift| > band (e.g. 5%), flags concrete action (INCREASE / REDUCE) with humanized explanation.
+    """
+    actions = []
+    total_turnover = 0.0
+    all_tickers = sorted(list(set(list(current_weights.keys()) + list(target_weights.keys()))))
+    
+    for ticker in all_tickers:
+        cur_w = float(current_weights.get(ticker, 0.0))
+        tgt_w = float(target_weights.get(ticker, 0.0))
+        drift = tgt_w - cur_w
+        abs_drift = abs(drift)
+        
+        if abs_drift > band:
+            action_type = "INCREASE" if drift > 0 else "REDUCE"
+            total_turnover += abs_drift
+            actions.append({
+                "ticker": ticker,
+                "current_weight_pct": round(cur_w * 100, 1),
+                "target_weight_pct": round(tgt_w * 100, 1),
+                "drift_pct": round(drift * 100, 1),
+                "action": action_type,
+                "suggested_trade": f"{action_type} allocation by {abs_drift * 100:.1f}% to align with Max-Sharpe Frontier.",
+                "breaches_band": True
+            })
+        else:
+            actions.append({
+                "ticker": ticker,
+                "current_weight_pct": round(cur_w * 100, 1),
+                "target_weight_pct": round(tgt_w * 100, 1),
+                "drift_pct": round(drift * 100, 1),
+                "action": "HOLD",
+                "suggested_trade": f"Hold position. Drift ({abs_drift * 100:.1f}%) within allowable +/- {band * 100:.0f}% tolerance band.",
+                "breaches_band": False
+            })
+            
+    return {
+        "rebalance_required": any(a["breaches_band"] for a in actions),
+        "tolerance_band_pct": band * 100,
+        "estimated_turnover_pct": round(total_turnover * 50, 1),  # sum of |drifts| / 2
+        "allocations": actions,
+        "humanized_rationale": (
+            f"The rebalancing engine monitors drift against the Markowitz tangency portfolio. "
+            f"Assets deviating beyond the +/-{band * 100:.0f}% threshold trigger disciplined rebalancing "
+            f"orders to lock in profits and trim over-concentrated risk."
+        )
+    }
+

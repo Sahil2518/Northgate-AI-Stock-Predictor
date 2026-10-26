@@ -31,6 +31,7 @@ export default function TerminalChartCanvas({
 }) {
   const [activeModel, setActiveModel] = useState('all'); // 'all', 'ensemble', 'dl', 'ml'
   const [showOverlays, setShowOverlays] = useState(true);
+  const currencySymbol = quote?.currency_symbol || (quote?.currency === 'USD' ? '$' : '₹');
 
   const predictionsList = Array.isArray(predictionData?.predictions) ? predictionData.predictions : [];
 
@@ -96,29 +97,29 @@ export default function TerminalChartCanvas({
           {dataPoint.actual !== undefined && (
             <div className="flex justify-between items-center text-slate-300">
               <span className="text-[11px] font-sans">Actual Price:</span>
-              <span className="font-bold text-white tabular-nums">${dataPoint.actual.toFixed(2)}</span>
+              <span className="font-bold text-white tabular-nums">{currencySymbol}{dataPoint.actual.toFixed(2)}</span>
             </div>
           )}
 
           <div className="flex justify-between items-center text-sky-400">
             <span className="text-[11px] font-sans">Consensus Ensemble:</span>
-            <span className="font-bold tabular-nums">${dataPoint.ensemble.toFixed(2)}</span>
+            <span className="font-bold tabular-nums">{currencySymbol}{dataPoint.ensemble.toFixed(2)}</span>
           </div>
 
           <div className="flex justify-between items-center text-indigo-400">
             <span className="text-[11px] font-sans">PyTorch LSTM:</span>
-            <span className="tabular-nums">${dataPoint.dl_lstm.toFixed(2)}</span>
+            <span className="tabular-nums">{currencySymbol}{dataPoint.dl_lstm.toFixed(2)}</span>
           </div>
 
           <div className="flex justify-between items-center text-emerald-400">
             <span className="text-[11px] font-sans">XGBoost Regressor:</span>
-            <span className="tabular-nums">${dataPoint.ml_xgb.toFixed(2)}</span>
+            <span className="tabular-nums">{currencySymbol}{dataPoint.ml_xgb.toFixed(2)}</span>
           </div>
 
           {dataPoint.isForecast && dataPoint.lower > 0 && (
             <div className="border-t border-[#1E273B] pt-1 text-[10px] text-slate-400 flex justify-between">
               <span className="font-sans">95% Range:</span>
-              <span>${dataPoint.lower.toFixed(2)} - ${dataPoint.upper.toFixed(2)}</span>
+              <span>{currencySymbol}{dataPoint.lower.toFixed(2)} - {currencySymbol}{dataPoint.upper.toFixed(2)}</span>
             </div>
           )}
         </div>
@@ -201,7 +202,7 @@ export default function TerminalChartCanvas({
             <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-[#07090E] border border-[#1E273B]">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-slate-500 font-sans text-[10px]">Spot:</span>
-              <span className="text-white font-bold tabular-nums">${Number(quote.current_price).toFixed(2)}</span>
+              <span className="text-white font-bold tabular-nums">{currencySymbol}{Number(quote.current_price).toFixed(2)}</span>
             </div>
           )}
 
@@ -245,7 +246,7 @@ export default function TerminalChartCanvas({
               domain={[minPrice, maxPrice]} 
               stroke="#475569" 
               fontSize={10} 
-              tickFormatter={(v) => `$${Number(v || 0).toFixed(0)}`}
+              tickFormatter={(v) => `${currencySymbol}${Number(v || 0).toFixed(0)}`}
               tickLine={false}
               axisLine={{ stroke: '#171D2B' }}
               fontFamily="JetBrains Mono"

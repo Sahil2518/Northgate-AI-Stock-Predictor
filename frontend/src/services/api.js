@@ -61,6 +61,13 @@ export const api = {
   // Multi-model AI price forecasting (PyTorch LSTM + XGBoost + Sentiment)
   getPredictions: (ticker, horizon = 14) => apiClient.get(`/predict/${ticker}?horizon=${horizon}`).then(res => res.data),
 
+  // PRD Benchmark & Quant Lab Endpoints
+  getModelBenchmark: (ticker) => apiClient.get(`/predict/benchmark/${ticker}`).then(res => res.data),
+  getSentimentAblation: (ticker) => apiClient.get(`/predict/sentiment-impact/${ticker}`).then(res => res.data),
+  getRebalancingPlan: (data) => apiClient.post('/portfolio/rebalance', data).then(res => res.data),
+  getDataQualityReport: () => apiClient.get('/quant/data-quality-report').then(res => res.data),
+  getMathVerification: () => apiClient.get('/quant/math-verify').then(res => res.data),
+
   // Real-time financial news sentiment analysis
   getSentiment: (ticker) => apiClient.get(`/sentiment/${ticker}`).then(res => res.data),
 

@@ -1,0 +1,72 @@
+# Northgate Quantitative Research (NQR) - System Configuration
+# Fulfills Section 15.3 of the Capstone Project PRD
+
+project:
+  name: "Northgate AI Stock Market Prediction & Portfolio Optimization System"
+  version: "1.0.0"
+  commissioning_org: "Northgate Quantitative Research (NQR)"
+  classification: "Advanced Capstone"
+
+universe:
+  tickers:
+    - "AAPL"
+    - "MSFT"
+    - "JPM"
+    - "XOM"
+    - "JNJ"
+    - "PG"
+    - "NVDA"
+    - "KO"
+    - "CAT"
+    - "HD"
+  benchmark: "^GSPC"  # S&P 500 Index
+  volatility_index: "^VIX" # CBOE VIX Fear Gauge
+
+macro:
+  series:
+    - "DGS10"    # 10-Year Treasury Constant Maturity Rate
+    - "DGS3MO"   # 3-Month Treasury Bill Secondary Market Rate
+    - "CPIAUCSL" # Consumer Price Index for All Urban Consumers
+    - "UNRATE"   # Civilian Unemployment Rate
+
+data:
+  start_date: "2015-01-01"
+  raw_storage: "data/raw/"
+  processed_storage: "data/processed/"
+  max_impute_gap_days: 3
+  zscore_outlier_threshold: 5.0
+
+modeling:
+  random_seed: 42
+  chronological_splits:
+    train_ratio: 0.70
+    validation_ratio: 0.15
+    test_ratio: 0.15
+  sequence_length: 60  # Sliding window lookback L
+  forecast_horizon: 1  # 1-day ahead forward prediction
+  cross_validation_splits: 5 # TimeSeriesSplit expanding window
+  models:
+    classical_ml:
+      - "Linear / Ridge Regression"
+      - "Random Forest Regressor"
+      - "XGBoost Regressor"
+      - "Support Vector Regression (SVR)"
+    deep_learning:
+      - "LSTM (Long Short-Term Memory)"
+      - "GRU (Gated Recurrent Unit)"
+      - "Bidirectional LSTM"
+      - "Transformer (Self-Attention Encoder)"
+    baseline: "Naive Random Walk Predictor"
+
+sentiment:
+  primary_engine: "ProsusAI/finbert"
+  baseline_engine: "VADER"
+  lookahead_cutoff_hour_est: 16 # News after 16:00 maps to session t+1
+  momentum_lookback_days: 3
+
+portfolio:
+  risk_free_rate: 0.045 # 4.5% risk-free hurdle
+  rebalancing_tolerance_band: 0.05 # +/- 5% allocation drift threshold
+  max_asset_allocation_cap: 0.35 # Maximum 35% single-asset cap
+  monte_carlo_simulations: 20000
+  covariance_shrinkage: "Ledoit-Wolf"

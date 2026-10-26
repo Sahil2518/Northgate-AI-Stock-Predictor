@@ -1,12 +1,15 @@
 """
 Northgate AI Stock Predictor - Portfolio Optimization API Router
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
+from typing import Dict, Any, Optional
 from app.models.schemas import (
     PortfolioOptimizeRequest, PortfolioOptimizeResponse,
     StressTestRequest, StressTestResponse
 )
-from app.services.portfolio import optimize_portfolio, run_portfolio_stress_test
+from app.services.portfolio import (
+    optimize_portfolio, run_portfolio_stress_test, compute_rebalancing_plan
+)
 
 router = APIRouter(prefix="/portfolio", tags=["Portfolio Optimization"])
 
@@ -32,4 +35,18 @@ def stress_test_portfolio(request: StressTestRequest):
         return run_portfolio_stress_test(request)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Stress test simulation failed: {str(e)}")
+
+@router.post("/rebalance")
+def get_rebalancing_schedule(payload: Dict[str, Any] = Body(...)):
+    """
+    Computes rule-based portfolio rebalancing plan comparing current weights against 
+    target Max-Sharpe weights with a +/- 5% drift threshold. Fulfills PRD Section 12.2.
+    """
+    try:
+        current_w = payload.get("current_weights", {})
+        target_w = payload.get("target_weights", {})
+        band = float(payload.get("tolerance_band", 0.05))
+        return compute_rebalancing_plan(current_w, target_w, band=band)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Rebalancing plan calculation failed: {str(e)}")
 

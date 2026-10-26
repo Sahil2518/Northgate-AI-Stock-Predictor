@@ -9,13 +9,14 @@ import SentimentView from './components/SentimentView';
 import PortfolioOptimizer from './components/PortfolioOptimizer';
 import TechnicalView from './components/TechnicalView';
 import PaperTradingDesk from './components/PaperTradingDesk';
+import QuantLabView from './components/QuantLabView';
 import WalletModal from './components/WalletModal';
 import AuthModal from './components/AuthModal';
 import Toast from './components/Toast';
 import api from './services/api';
 
 export default function App() {
-  const [currentTicker, setCurrentTicker] = useState('AAPL');
+  const [currentTicker, setCurrentTicker] = useState('RELIANCE');
   const [activeTab, setActiveTab] = useState('workspace'); // 'workspace', 'prediction', 'sentiment', 'portfolio', 'paper', 'technicals'
   const [isLive, setIsLive] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
@@ -398,6 +399,15 @@ export default function App() {
         )}
 
         {/* Expanded Deep-Dive Views (Sidebar Navigation) */}
+        {activeTab === 'quantlab' && (
+          <div className="flex-1 overflow-hidden bg-[#07090E]">
+            <QuantLabView
+              currentTicker={currentTicker}
+              onSelectTicker={handleSelectTicker}
+            />
+          </div>
+        )}
+
         {activeTab === 'prediction' && (
           <div className="flex-1 overflow-y-auto p-6 bg-[#080B11]">
             <PredictionChart

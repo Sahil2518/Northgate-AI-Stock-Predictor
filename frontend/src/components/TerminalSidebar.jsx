@@ -12,12 +12,14 @@ import {
   ShieldCheck,
   TrendingUp,
   Cpu,
-  Wallet
+  Wallet,
+  Award
 } from 'lucide-react';
 
 export default function TerminalSidebar({ activeTab, setActiveTab, onOpenWallet, isLive }) {
   const tools = [
     { id: 'workspace', label: 'Trading Terminal', icon: BarChart2, badge: 'PRO' },
+    { id: 'quantlab', label: 'Quant Lab & PRD Evaluation Hub', icon: Award, badge: 'PRD' },
     { id: 'prediction', label: 'AI Sequence Forecaster', icon: BrainCircuit },
     { id: 'sentiment', label: 'News Catalyst Flow', icon: Newspaper },
     { id: 'portfolio', label: 'Portfolio Optimizer & Stress Test', icon: PieChart },

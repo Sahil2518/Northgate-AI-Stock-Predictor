@@ -28,7 +28,7 @@ export default function TickerBar({ watchlist = [], currentTicker, onSelectTicke
                 }`}
               >
                 <span className="font-bold text-slate-100">{item.ticker}</span>
-                <span className="text-slate-400 tabular-nums">${item.current_price.toFixed(2)}</span>
+                <span className="text-slate-400 tabular-nums">{item.currency_symbol || (item.currency === 'USD' ? '$' : '₹')}{item.current_price.toFixed(2)}</span>
                 <span className={`flex items-center font-semibold tabular-nums text-[10px] ${
                   isPositive ? 'text-emerald-400' : 'text-rose-400'
                 }`}>

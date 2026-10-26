@@ -24,6 +24,7 @@ export default function TerminalDock({
 }) {
   const [activeDockTab, setActiveDockTab] = useState('positions'); // 'positions', 'signals', 'news', 'stresstest'
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const currencySymbol = accountData?.currency_symbol || '₹';
 
   const positionsList = Array.isArray(accountData?.positions) ? accountData.positions : [];
   const historyList = Array.isArray(accountData?.trade_history) ? accountData.trade_history : [];
@@ -125,15 +126,15 @@ export default function TerminalDock({
                           <tr key={pos.ticker} className="hover:bg-[#111726]/60">
                             <td className="py-2 font-bold text-white">{pos.ticker}</td>
                             <td className="py-2 tabular-nums">{pos.shares}</td>
-                            <td className="py-2 tabular-nums text-slate-400">${Number(pos.entry_price || 0).toFixed(2)}</td>
-                            <td className="py-2 tabular-nums font-semibold">${Number(pos.current_price || 0).toFixed(2)}</td>
-                            <td className="py-2 tabular-nums">${Number(pos.market_value || 0).toFixed(2)}</td>
+                            <td className="py-2 tabular-nums text-slate-400">{currencySymbol}{Number(pos.entry_price || pos.average_entry_price || 0).toFixed(2)}</td>
+                            <td className="py-2 tabular-nums font-semibold">{currencySymbol}{Number(pos.current_price || 0).toFixed(2)}</td>
+                            <td className="py-2 tabular-nums">{currencySymbol}{Number(pos.market_value || 0).toFixed(2)}</td>
                             <td className={`py-2 font-bold tabular-nums ${isProfitable ? 'text-emerald-400' : 'text-rose-400'}`}>
-                              {isProfitable ? '+' : ''}${Number(pos.unrealized_pnl || 0).toFixed(2)} ({Number(pos.unrealized_pnl_pct || 0).toFixed(2)}%)
+                              {isProfitable ? '+' : ''}{currencySymbol}{Number(pos.unrealized_pnl || 0).toFixed(2)} ({Number(pos.unrealized_pnl_pct || 0).toFixed(2)}%)
                             </td>
                             <td className="py-2 text-[10px] space-y-0.5 text-slate-400">
-                              {pos.stop_loss_price && <div className="text-rose-400">SL: ${Number(pos.stop_loss_price).toFixed(2)}</div>}
-                              {pos.target_price && <div className="text-emerald-400">TP: ${Number(pos.target_price).toFixed(2)}</div>}
+                              {pos.stop_loss_price && <div className="text-rose-400">SL: {currencySymbol}{Number(pos.stop_loss_price).toFixed(2)}</div>}
+                              {pos.target_price && <div className="text-emerald-400">TP: {currencySymbol}{Number(pos.target_price).toFixed(2)}</div>}
                             </td>
                             <td className="py-2 text-right">
                               <button

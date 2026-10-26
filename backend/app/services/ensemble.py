@@ -14,8 +14,9 @@ This consensus engine fuses both paradigms:
    consistent with geometric Brownian motion diffusion models.
 """
 
+import time
 import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 import numpy as np
 import pandas as pd
 from app.models.schemas import PredictionPoint, PredictionMetrics, PredictionResponse
@@ -24,12 +25,24 @@ from app.services.ml_predictor import train_and_predict_ml
 from app.services.dl_predictor import train_and_predict_dl
 from app.services.sentiment import get_ticker_sentiment
 
+# In-memory prediction cache (10 minutes TTL to prevent redundant model retraining)
+_PREDICTION_CACHE: Dict[str, Tuple[float, PredictionResponse]] = {}
+PREDICTION_CACHE_TTL = 600
 
 def get_ensemble_predictions(ticker: str, horizon_days: int = 14) -> PredictionResponse:
     """
     Computes a synthesized multi-model forecast with 95% confidence intervals.
+    Utilizes an in-memory TTL cache to return lightning-fast forecasts and protect CPU.
     """
     ticker_clean = ticker.upper()
+    cache_key = f"{ticker_clean}_{horizon_days}"
+    now = time.time()
+    
+    if cache_key in _PREDICTION_CACHE:
+        cached_time, cached_resp = _PREDICTION_CACHE[cache_key]
+        if now - cached_time < PREDICTION_CACHE_TTL:
+            return cached_resp
+
     df = fetch_stock_history(ticker_clean, period="2y")
     current_price = float(df['Close'].iloc[-1])
     
@@ -121,7 +134,7 @@ def get_ensemble_predictions(ticker: str, horizon_days: int = 14) -> PredictionR
     predicted_final = ensemble_forecasts[-1]
     expected_change = round(((predicted_final - current_price) / current_price) * 100, 2)
     
-    return PredictionResponse(
+    resp = PredictionResponse(
         ticker=ticker_clean,
         horizon_days=horizon_days,
         current_price=round(current_price, 2),
@@ -138,3 +151,5 @@ def get_ensemble_predictions(ticker: str, horizon_days: int = 14) -> PredictionR
         model_weights={"XGBoost_RF_ML": w_ml, "PyTorch_LSTM_DL": w_dl, "Sentiment_Bias": round(sentiment_score, 2)},
         feature_importance=feat_importance
     )
+    _PREDICTION_CACHE[cache_key] = (now, resp)
+    return resp

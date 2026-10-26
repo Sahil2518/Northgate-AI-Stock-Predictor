@@ -19,41 +19,41 @@ export default function StockHeader({
   isLoading 
 }) {
   const [copied, setCopied] = useState(false);
-  const [marketStatus, setMarketStatus] = useState({ isOpen: false, text: 'Market Closed', estTime: '' });
+  const [marketStatus, setMarketStatus] = useState({ isOpen: false, text: 'NSE Closed', estTime: '' });
+  const currencySymbol = quote?.currency_symbol || (quote?.currency === 'USD' ? '$' : '₹');
 
-  // Calculate US Market Session (NYSE / NASDAQ hours: 09:30 - 16:00 EST, Mon-Fri)
+  // Calculate Indian Market Session (NSE / BSE hours: 09:15 - 15:30 IST, Mon-Fri)
   useEffect(() => {
     const updateMarketStatus = () => {
       try {
         const now = new Date();
-        const estStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
-        const estDate = new Date(estStr);
-        const day = estDate.getDay(); // 0 is Sun, 6 is Sat
-        const hours = estDate.getHours();
-        const minutes = estDate.getMinutes();
+        const istStr = now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+        const istDate = new Date(istStr);
+        const day = istDate.getDay();
+        const hours = istDate.getHours();
+        const minutes = istDate.getMinutes();
         const totalMinutes = hours * 60 + minutes;
 
-        // 9:30 AM = 570 mins, 4:00 PM = 960 mins
         const isWeekday = day >= 1 && day <= 5;
-        const isOpen = isWeekday && totalMinutes >= 570 && totalMinutes < 960;
-        const isPreMarket = isWeekday && totalMinutes >= 240 && totalMinutes < 570;
-        const isPostMarket = isWeekday && totalMinutes >= 960 && totalMinutes < 1200;
+        const isOpen = isWeekday && totalMinutes >= 555 && totalMinutes < 930;
+        const isPreMarket = isWeekday && totalMinutes >= 540 && totalMinutes < 555;
+        const isPostMarket = isWeekday && totalMinutes >= 940 && totalMinutes < 960;
 
-        let statusText = 'Market Closed';
+        let statusText = 'NSE Closed';
         if (isOpen) {
-          const minsToClose = 960 - totalMinutes;
+          const minsToClose = 930 - totalMinutes;
           const h = Math.floor(minsToClose / 60);
           const m = minsToClose % 60;
-          statusText = `Open · Closes in ${h}h ${m}m`;
+          statusText = `NSE Open · Closes in ${h}h ${m}m`;
         } else if (isPreMarket) {
-          statusText = 'Pre-Market Session';
+          statusText = 'NSE Pre-Market';
         } else if (isPostMarket) {
-          statusText = 'After-Hours Session';
+          statusText = 'NSE Post-Market';
         } else {
-          statusText = 'Closed (Weekend)';
+          statusText = 'NSE Weekend / Closed';
         }
 
-        const formattedTime = estDate.toLocaleTimeString('en-US', { 
+        const formattedTime = istDate.toLocaleTimeString('en-US', { 
           hour: '2-digit', 
           minute: '2-digit', 
           second: '2-digit', 
@@ -62,7 +62,7 @@ export default function StockHeader({
 
         setMarketStatus({ isOpen, text: statusText, estTime: formattedTime });
       } catch (e) {
-        setMarketStatus({ isOpen: false, text: 'US Equity Hours', estTime: 'EST' });
+        setMarketStatus({ isOpen: false, text: 'NSE / BSE Hours', estTime: 'IST' });
       }
     };
 
@@ -181,7 +181,7 @@ export default function StockHeader({
 
           <div className="flex items-baseline gap-3 flex-wrap">
             <span className="text-3xl sm:text-4xl font-black text-white font-mono tabular-nums tracking-tight">
-              ${price > 0 ? price.toFixed(2) : '—'}
+              {currencySymbol}{price > 0 ? price.toFixed(2) : '—'}
             </span>
 
             {price > 0 && (

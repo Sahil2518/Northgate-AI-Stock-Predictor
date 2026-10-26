@@ -27,6 +27,7 @@ export default function RecommendationCard({ recommendation, quote, onOpenPaperT
     );
   }
 
+  const currencySymbol = quote?.currency_symbol || (quote?.currency === 'USD' ? '$' : '₹');
   const rating = typeof recommendation.recommendation === 'string' 
     ? recommendation.recommendation 
     : 'HOLD';
@@ -141,7 +142,7 @@ export default function RecommendationCard({ recommendation, quote, onOpenPaperT
             Reference Price
           </span>
           <span className="text-base sm:text-lg font-black text-white font-mono tabular-nums">
-            ${currentPrice > 0 ? currentPrice.toFixed(2) : '—'}
+            {currencySymbol}{currentPrice > 0 ? currentPrice.toFixed(2) : '—'}
           </span>
           <span className="text-[10px] text-slate-500 block">Spot Market</span>
         </div>
@@ -152,7 +153,7 @@ export default function RecommendationCard({ recommendation, quote, onOpenPaperT
             7-Day Target
           </span>
           <span className="text-base sm:text-lg font-black text-sky-400 font-mono tabular-nums">
-            ${target_price_7d > 0 ? target_price_7d.toFixed(2) : '—'}
+            {currencySymbol}{target_price_7d > 0 ? target_price_7d.toFixed(2) : '—'}
           </span>
           <span className="text-[10px] text-slate-500 block">Short Horizon</span>
         </div>
@@ -163,7 +164,7 @@ export default function RecommendationCard({ recommendation, quote, onOpenPaperT
             30-Day Target
           </span>
           <span className="text-base sm:text-lg font-black text-emerald-400 font-mono tabular-nums">
-            ${target_price_30d > 0 ? target_price_30d.toFixed(2) : '—'}
+            {currencySymbol}{target_price_30d > 0 ? target_price_30d.toFixed(2) : '—'}
           </span>
           <span className="text-[10px] text-slate-500 block">Primary Target</span>
         </div>
@@ -187,7 +188,7 @@ export default function RecommendationCard({ recommendation, quote, onOpenPaperT
             Stop-Loss Floor
           </span>
           <span className="text-base sm:text-lg font-black text-rose-400 font-mono tabular-nums">
-            ${stop_loss_price > 0 ? stop_loss_price.toFixed(2) : '—'}
+            {currencySymbol}{stop_loss_price > 0 ? stop_loss_price.toFixed(2) : '—'}
           </span>
           <span className="text-[10px] text-slate-500 block">2.0x ATR Buffer</span>
         </div>
