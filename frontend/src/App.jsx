@@ -6,6 +6,7 @@ import PredictionChart from './components/PredictionChart';
 import SentimentView from './components/SentimentView';
 import PortfolioOptimizer from './components/PortfolioOptimizer';
 import TechnicalView from './components/TechnicalView';
+import PaperTradingDesk from './components/PaperTradingDesk';
 import api from './services/api';
 import { 
   TrendingUp, 
@@ -33,11 +34,15 @@ export default function App() {
   const [portfolio, setPortfolio] = useState(null);
   const [technicals, setTechnicals] = useState(null);
   const [history, setHistory] = useState(null);
+  const [paperAccount, setPaperAccount] = useState(null);
+  const [stressTest, setStressTest] = useState(null);
 
   // Loading & Error States
   const [isLoading, setIsLoading] = useState(true);
   const [isPredictLoading, setIsPredictLoading] = useState(false);
   const [isPortfolioLoading, setIsPortfolioLoading] = useState(false);
+  const [isPaperLoading, setIsPaperLoading] = useState(false);
+  const [isStressLoading, setIsStressLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
   // Initial load: health check & watchlist
@@ -46,8 +51,12 @@ export default function App() {
       try {
         await api.checkHealth();
         setIsLive(true);
-        const wl = await api.getWatchlist();
-        setWatchlist(wl);
+        const [wl, acc] = await Promise.all([
+          api.getWatchlist().catch(() => []),
+          api.getPaperAccount().catch(() => null)
+        ]);
+        if (wl && wl.length) setWatchlist(wl);
+        if (acc) setPaperAccount(acc);
       } catch (err) {
         console.warn('Backend connection note:', err.message);
         setIsLive(false);
@@ -140,6 +149,51 @@ export default function App() {
     }
   };
 
+  const handleRunStressTest = async (tickers, amount) => {
+    setIsStressLoading(true);
+    try {
+      const res = await api.stressTestPortfolio({
+        tickers: tickers || ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA'],
+        investment_amount: amount || 10000
+      });
+      setStressTest(res);
+    } catch (err) {
+      console.error('Stress test error:', err);
+    } finally {
+      setIsStressLoading(false);
+    }
+  };
+
+  const handleExecutePaperOrder = async (order) => {
+    setIsPaperLoading(true);
+    try {
+      const res = await api.executePaperOrder(order);
+      setPaperAccount(res);
+      return res;
+    } finally {
+      setIsPaperLoading(false);
+    }
+  };
+
+  const handleResetPaperAccount = async () => {
+    setIsPaperLoading(true);
+    try {
+      const res = await api.resetPaperAccount();
+      setPaperAccount(res);
+    } catch (err) {
+      console.error('Reset account error:', err);
+    } finally {
+      setIsPaperLoading(false);
+    }
+  };
+
+  const handleOpenPaperTrade = (rec) => {
+    if (rec?.ticker) {
+      setCurrentTicker(rec.ticker);
+    }
+    setActiveTab('paper');
+  };
+
   const handleSelectTicker = (newTicker) => {
     if (newTicker !== currentTicker) {
       setCurrentTicker(newTicker);
@@ -189,7 +243,8 @@ export default function App() {
           <div className="space-y-8">
             <RecommendationCard 
               recommendation={recommendation} 
-              quote={quote} 
+              quote={quote}
+              onOpenPaperTrade={handleOpenPaperTrade}
             />
 
             {/* Side-by-Side Highlights */}
@@ -263,10 +318,27 @@ export default function App() {
             portfolioData={portfolio}
             onOptimize={handleRunOptimization}
             isLoading={isPortfolioLoading}
+            stressTestData={stressTest}
+            onRunStressTest={handleRunStressTest}
+            isStressLoading={isStressLoading}
           />
         )}
 
-        {/* Tab 5: Technical Engine */}
+        {/* Tab 5: Paper Trading Terminal */}
+        {activeTab === 'paper' && (
+          <PaperTradingDesk
+            accountData={paperAccount}
+            onExecuteOrder={handleExecutePaperOrder}
+            onResetAccount={handleResetPaperAccount}
+            isLoading={isPaperLoading}
+            currentTicker={currentTicker}
+            currentPrice={quote?.current_price}
+            suggestedStopLoss={recommendation?.stop_loss_price}
+            suggestedTarget={recommendation?.target_price_30d}
+          />
+        )}
+
+        {/* Tab 6: Technical Engine */}
         {activeTab === 'technicals' && (
           <TechnicalView
             technicalData={technicals}

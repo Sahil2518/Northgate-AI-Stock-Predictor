@@ -40,6 +40,15 @@ export const api = {
   // Markowitz Modern Portfolio Theory optimization
   optimizePortfolio: (data) => apiClient.post('/portfolio/optimize', data).then(res => res.data),
 
+  // Historical Crisis Stress Testing
+  stressTestPortfolio: (data) => apiClient.post('/portfolio/stress-test', data).then(res => res.data),
+
+  // Paper Trading & Brokerage Execution Simulator
+  getPaperAccount: () => apiClient.get('/paper-trading/account').then(res => res.data),
+  executePaperOrder: (order) => apiClient.post('/paper-trading/order', order).then(res => res.data),
+  resetPaperAccount: () => apiClient.post('/paper-trading/reset').then(res => res.data),
+  getBrokerStatus: () => apiClient.get('/paper-trading/broker-status').then(res => res.data),
+
   // System liveness and healthcheck
   checkHealth: () => axios.get(HEALTH_URL).then(res => res.data),
 };

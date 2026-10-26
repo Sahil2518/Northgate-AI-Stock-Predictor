@@ -80,6 +80,25 @@ A rigorous multi-factor decision engine synthesizing 4 quantitative pillars:
 - **Smart Stop-Loss**: ATR-based dynamic risk floor ($P_{\text{current}} - 2 \times ATR$).
 - **Risk-to-Reward Ratio**: Quantitative ratio evaluating potential upside vs. stop-loss downside.
 
+### 5. 🌪️ Historical Crisis Stress Testing Simulator & Real-World Friction
+- **Crisis Regimes**: Stresses custom equity allocations against 4 severe macroeconomic shock distributions:
+  - **2020 COVID-19 Liquidity Shock** (-34.0% drawdown, +150% volatility spike)
+  - **2022 Fed Aggressive Rate Shock** (-24.5% drawdown, +65% volatility spike)
+  - **2008 Global Financial Crisis** (-56.8% drawdown, +220% volatility spike)
+  - **1970s Stagflation & Energy Shock** (-18.2% drawdown, +45% volatility spike)
+- **Net Return vs Friction**: Deducts institutional market-impact slippage (15 bps) and brokerage commissions ($0.005/share) from theoretical gross alpha.
+- **Capital Preservation Advisory**: Issues tail-risk hedging alerts, VaR escalation warnings, and max drawdown forecasts.
+
+### 6. 💼 Interactive Paper Trading Terminal & Execution Engine
+- **$100,000 Virtual Capital**: Risk-free live execution sandbox with real-time portfolio NAV, cash balance, and unrealized/realized P&L.
+- **Automated Bracket Triggers**: Automatically executes stop-loss stops ($2 \times ATR$) and profit targets when market quotes cross boundary thresholds.
+- **Persistent Ledger**: Stores all orders, timestamps, and position changes persistently in JSON storage with instantaneous account reset capability.
+- **1-Click AI Execution**: Instantly routes Northgate AI Buy/Sell recommendations directly to the simulated execution desk with calculated ATR risk brackets.
+
+### 7. 🔌 Institutional Broker Adapter Layer
+- Pluggable modular interface (`broker_adapter.py`) ready for seamless transition from paper trading to live electronic execution.
+- Includes pre-built connectors for **Alpaca Markets API** (Paper & Live) and **Polygon.io** institutional streaming data feeds.
+
 ---
 
 ## 📁 Repository Structure
@@ -92,8 +111,9 @@ Stock predictor/
 │   │   │   ├── stocks.py         # Quotes & historical technicals
 │   │   │   ├── prediction.py     # AI ML/DL forecasting
 │   │   │   ├── sentiment.py      # NLP News sentiment
-│   │   │   ├── portfolio.py      # Markowitz optimizer
-│   │   │   └── recommendations.py# Buy/Hold/Sell advisory
+│   │   │   ├── portfolio.py      # Markowitz optimizer & Crisis stress test
+│   │   │   ├── recommendations.py# Buy/Hold/Sell advisory
+│   │   │   └── paper_trading.py  # Virtual trading desk & broker endpoints
 │   │   ├── models/
 │   │   │   └── schemas.py        # Pydantic data schemas
 │   │   ├── services/
@@ -103,12 +123,15 @@ Stock predictor/
 │   │   │   ├── ml_predictor.py   # XGBoost / Random Forest
 │   │   │   ├── dl_predictor.py   # PyTorch LSTM network
 │   │   │   ├── ensemble.py       # Consensus forecasting
-│   │   │   ├── portfolio.py      # SciPy portfolio optimization
-│   │   │   └── advisor.py        # Multi-factor recommendation
+│   │   │   ├── portfolio.py      # SciPy optimization & stress testing
+│   │   │   ├── advisor.py        # Multi-factor recommendation
+│   │   │   ├── paper_trading.py  # Simulated brokerage & order execution
+│   │   │   └── broker_adapter.py # Alpaca / Polygon pluggable adapter
+│   │   ├── data/                 # Paper account state storage
 │   │   ├── config.py             # Settings & tickers
 │   │   └── main.py               # Application entrypoint
 │   ├── tests/
-│   │   └── test_backend.py       # Automated test suite (10 test cases)
+│   │   └── test_backend.py       # Automated test suite (13 test cases)
 │   ├── conftest.py
 │   ├── requirements.txt
 │   └── Dockerfile
@@ -121,6 +144,8 @@ Stock predictor/
 │   │   │   ├── PredictionChart.jsx
 │   │   │   ├── SentimentView.jsx
 │   │   │   ├── PortfolioOptimizer.jsx
+│   │   │   ├── StressTestCard.jsx # Macro crisis stress simulator
+│   │   │   ├── PaperTradingDesk.jsx # Virtual order execution desk
 │   │   │   └── TechnicalView.jsx
 │   │   ├── services/
 │   │   │   └── api.js
@@ -180,7 +205,7 @@ docker-compose up --build
 
 ## 🧪 Automated Testing
 
-Run the full pytest suite (covering market data, ML/DL model training, sentiment, and API endpoints):
+Run the full pytest suite (covering market data, ML/DL model training, sentiment, crisis stress testing, paper brokerage engine, and API endpoints):
 
 ```bash
 .\venv\Scripts\python.exe -m pytest backend -v
@@ -188,17 +213,20 @@ Run the full pytest suite (covering market data, ML/DL model training, sentiment
 
 **Results:**
 ```
-backend/tests/test_backend.py::test_root_endpoint PASSED                 [ 10%]
-backend/tests/test_backend.py::test_health_endpoint PASSED               [ 20%]
-backend/tests/test_backend.py::test_market_data_synthetic_generation PASSED [ 30%]
-backend/tests/test_backend.py::test_stock_quote_fetch PASSED             [ 40%]
-backend/tests/test_backend.py::test_technical_indicators_calculation PASSED [ 50%]
-backend/tests/test_backend.py::test_sentiment_analysis PASSED            [ 60%]
-backend/tests/test_backend.py::test_ml_and_dl_prediction PASSED          [ 70%]
-backend/tests/test_backend.py::test_portfolio_optimization PASSED        [ 80%]
-backend/tests/test_backend.py::test_recommendation_engine PASSED         [ 90%]
-backend/tests/test_backend.py::test_api_integration PASSED               [100%]
-======================= 10 passed in 31.29s =======================
+backend/tests/test_backend.py::test_root_endpoint PASSED                 [  7%]
+backend/tests/test_backend.py::test_health_endpoint PASSED               [ 15%]
+backend/tests/test_backend.py::test_market_data_synthetic_generation PASSED [ 23%]
+backend/tests/test_backend.py::test_stock_quote_fetch PASSED             [ 30%]
+backend/tests/test_backend.py::test_technical_indicators_calculation PASSED [ 38%]
+backend/tests/test_backend.py::test_sentiment_analysis PASSED            [ 46%]
+backend/tests/test_backend.py::test_ml_and_dl_prediction PASSED          [ 53%]
+backend/tests/test_backend.py::test_portfolio_optimization PASSED        [ 61%]
+backend/tests/test_backend.py::test_recommendation_engine PASSED         [ 69%]
+backend/tests/test_backend.py::test_api_integration PASSED               [ 76%]
+backend/tests/test_backend.py::test_crisis_stress_testing PASSED         [ 84%]
+backend/tests/test_backend.py::test_paper_trading_engine PASSED          [ 92%]
+backend/tests/test_backend.py::test_broker_adapter_status PASSED         [100%]
+======================= 13 passed in 30.96s =======================
 ```
 
 ---
@@ -215,7 +243,12 @@ backend/tests/test_backend.py::test_api_integration PASSED               [100%]
 | `GET` | `/api/v1/predict/{ticker}?horizon=14` | ML + PyTorch LSTM + Sentiment consensus |
 | `GET` | `/api/v1/sentiment/{ticker}` | NLP news sentiment & articles |
 | `POST`| `/api/v1/portfolio/optimize` | Markowitz Efficient Frontier optimization |
+| `POST`| `/api/v1/portfolio/stress-test` | Macro Crisis Stress Simulator (COVID, 2022, 2008, Stagflation) |
 | `GET` | `/api/v1/recommendations/{ticker}` | Buy/Hold/Sell multi-factor rating |
+| `GET` | `/api/v1/paper-trading/account` | Virtual trading account NAV, cash & positions |
+| `POST`| `/api/v1/paper-trading/order` | Execute virtual market order with bracket stop-loss |
+| `POST`| `/api/v1/paper-trading/reset` | Reset paper trading account to $100k cash |
+| `GET` | `/api/v1/paper-trading/broker-status` | Pluggable Broker connectivity status (Alpaca/Local) |
 
 Interactive Swagger documentation is available at `http://127.0.0.1:8000/docs`.
 

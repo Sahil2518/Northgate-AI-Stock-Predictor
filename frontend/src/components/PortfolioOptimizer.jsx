@@ -23,13 +23,17 @@ import {
   CheckCircle2,
   Award
 } from 'lucide-react';
+import StressTestCard from './StressTestCard';
 
 const CANDIDATE_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'SPY', 'JPM', 'V'];
 
 export default function PortfolioOptimizer({ 
   portfolioData, 
   onOptimize, 
-  isLoading 
+  isLoading,
+  stressTestData,
+  onRunStressTest,
+  isStressLoading
 }) {
   const [selectedTickers, setSelectedTickers] = useState(['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA']);
   const [newTickerInput, setNewTickerInput] = useState('');
@@ -423,6 +427,14 @@ export default function PortfolioOptimizer({
               </table>
             </div>
           </div>
+
+          {/* Historical Crisis Stress Testing Simulator */}
+          <StressTestCard
+            stressTestData={stressTestData}
+            onRunStressTest={() => onRunStressTest && onRunStressTest(selectedTickers, investmentAmount)}
+            isLoading={isStressLoading}
+            investmentAmount={investmentAmount}
+          />
 
         </div>
       )}

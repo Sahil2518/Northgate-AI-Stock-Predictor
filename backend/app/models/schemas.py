@@ -129,6 +129,8 @@ class PortfolioOptimizeRequest(BaseModel):
     investment_amount: float = Field(default=10000.0, gt=0)
     risk_free_rate: float = Field(default=0.045, ge=0.0, le=0.20)
     timeframe_years: int = Field(default=2, ge=1, le=5)
+    slippage_bps: float = Field(default=5.0, ge=0.0, le=100.0, description="Execution slippage in basis points")
+    fee_per_trade: float = Field(default=0.0, ge=0.0, description="Broker commission fee per rebalance")
 
 class OptimizedPortfolioAllocation(BaseModel):
     ticker: str
@@ -198,3 +200,86 @@ class StockRecommendationResponse(BaseModel):
     sentiment_impact: str
     ai_thesis: str
     last_updated: str
+
+# ----------------- Crisis Stress Testing Schemas -----------------
+
+class StressTestScenarioResult(BaseModel):
+    scenario_id: str
+    name: str
+    historical_benchmark: str
+    market_drawdown_pct: float
+    portfolio_drawdown_pct: float
+    estimated_dollar_loss: float
+    recovery_months_est: int
+    resilience_grade: str  # "A+", "A", "B", "C", "D"
+    vulnerability_notes: str
+
+class StressTestResponse(BaseModel):
+    portfolio_name: str
+    investment_amount: float
+    overall_resilience_score: float  # 0 to 100
+    scenarios: List[StressTestScenarioResult]
+    hedging_recommendations: List[str]
+
+class StressTestRequest(BaseModel):
+    tickers: List[str] = Field(default=["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA"])
+    weights: Optional[List[float]] = None
+    investment_amount: float = Field(default=10000.0, gt=0)
+
+# ----------------- Paper Trading & Execution Simulator Schemas -----------------
+
+class PaperOrderRequest(BaseModel):
+    ticker: str
+    action: str = Field(..., pattern="^(BUY|SELL)$")
+    shares: float = Field(..., gt=0)
+    order_type: str = Field(default="MARKET", pattern="^(MARKET|LIMIT)$")
+    limit_price: Optional[float] = None
+    stop_loss_price: Optional[float] = None
+    target_price: Optional[float] = None
+
+class PaperPosition(BaseModel):
+    ticker: str
+    company_name: str
+    shares: float
+    average_entry_price: float
+    current_price: float
+    market_value: float
+    cost_basis: float
+    unrealized_pnl: float
+    unrealized_pnl_pct: float
+    stop_loss_price: Optional[float] = None
+    target_price: Optional[float] = None
+    opened_at: str
+
+class PaperTradeHistory(BaseModel):
+    id: str
+    ticker: str
+    action: str
+    shares: float
+    execution_price: float
+    total_amount: float
+    realized_pnl: Optional[float] = None
+    realized_pnl_pct: Optional[float] = None
+    executed_at: str
+    trigger_reason: str  # "Manual Order", "Stop-Loss Triggered", "Target Reached"
+
+class PaperAccountSummary(BaseModel):
+    cash_balance: float
+    portfolio_market_value: float
+    total_equity: float
+    initial_balance: float
+    total_pnl: float
+    total_pnl_pct: float
+    open_positions_count: int
+    total_trades_count: int
+    win_rate_pct: float
+    positions: List[PaperPosition]
+    trade_history: List[PaperTradeHistory]
+
+class BrokerStatusResponse(BaseModel):
+    active_broker: str
+    is_live_connected: bool
+    paper_mode: bool
+    latency_ms: float
+    supported_features: List[str]
+

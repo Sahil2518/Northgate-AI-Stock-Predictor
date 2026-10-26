@@ -141,3 +141,61 @@ def test_api_integration():
     res_r = client.get("/api/v1/recommendations/AAPL")
     assert res_r.status_code == 200
     assert res_r.json()["recommendation"] in ["STRONG BUY", "BUY", "HOLD", "SELL", "STRONG SELL"]
+
+def test_crisis_stress_testing():
+    res = client.post("/api/v1/portfolio/stress-test", json={
+        "tickers": ["AAPL", "MSFT", "GOOGL"],
+        "investment_amount": 20000.0
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert len(data["scenarios"]) == 4
+    assert 0 <= data["overall_resilience_score"] <= 100
+    for sc in data["scenarios"]:
+        assert sc["portfolio_drawdown_pct"] < 0
+        assert sc["estimated_dollar_loss"] > 0
+        assert sc["resilience_grade"] in ["A+", "A", "B", "C", "D"]
+
+def test_paper_trading_engine():
+    # 1. Reset account
+    res_reset = client.post("/api/v1/paper-trading/reset")
+    assert res_reset.status_code == 200
+    assert res_reset.json()["cash_balance"] == 100000.0
+    assert res_reset.json()["open_positions_count"] == 0
+    
+    # 2. Execute Buy Order (with realistic bracket limits: stop-loss 20% below, target 30% above)
+    res_buy = client.post("/api/v1/paper-trading/order", json={
+        "ticker": "AAPL",
+        "action": "BUY",
+        "shares": 10.0,
+        "stop_loss_price": 100.0,
+        "target_price": 600.0
+    })
+    assert res_buy.status_code == 200
+    account = res_buy.json()
+    assert account["cash_balance"] < 100000.0
+    assert account["open_positions_count"] == 1
+    assert account["positions"][0]["ticker"] == "AAPL"
+    
+    # 3. Check Account Summary
+    res_acc = client.get("/api/v1/paper-trading/account")
+    assert res_acc.status_code == 200
+    assert res_acc.json()["total_equity"] > 0
+    
+    # 4. Execute Sell Order
+    res_sell = client.post("/api/v1/paper-trading/order", json={
+        "ticker": "AAPL",
+        "action": "SELL",
+        "shares": 10.0
+    })
+    assert res_sell.status_code == 200
+    assert res_sell.json()["open_positions_count"] == 0
+
+def test_broker_adapter_status():
+    res = client.get("/api/v1/paper-trading/broker-status")
+    assert res.status_code == 200
+    data = res.json()
+    assert "broker" in data["active_broker"].lower() or "simulation" in data["active_broker"].lower()
+    assert data["paper_mode"] is True
+    assert len(data["supported_features"]) > 0
+

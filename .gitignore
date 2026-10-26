@@ -17,3 +17,6 @@ frontend/dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Data & Persistence
+backend/app/data/*.json

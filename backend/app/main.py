@@ -10,6 +10,7 @@ from app.api.prediction import router as prediction_router
 from app.api.sentiment import router as sentiment_router
 from app.api.portfolio import router as portfolio_router
 from app.api.recommendations import router as recommendations_router
+from app.api.paper_trading import router as paper_trading_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -38,6 +39,7 @@ app.include_router(prediction_router, prefix=settings.API_V1_PREFIX)
 app.include_router(sentiment_router, prefix=settings.API_V1_PREFIX)
 app.include_router(portfolio_router, prefix=settings.API_V1_PREFIX)
 app.include_router(recommendations_router, prefix=settings.API_V1_PREFIX)
+app.include_router(paper_trading_router, prefix=settings.API_V1_PREFIX)
 
 @app.get("/", tags=["Health Check"])
 def root_endpoint():

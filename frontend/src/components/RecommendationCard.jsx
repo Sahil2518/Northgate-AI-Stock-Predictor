@@ -8,10 +8,12 @@ import {
   Target, 
   Percent, 
   Brain,
-  Scale
+  Scale,
+  Briefcase,
+  Zap
 } from 'lucide-react';
 
-export default function RecommendationCard({ recommendation, quote }) {
+export default function RecommendationCard({ recommendation, quote, onOpenPaperTrade }) {
   if (!recommendation) {
     return (
       <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 animate-pulse text-center">
@@ -119,6 +121,18 @@ export default function RecommendationCard({ recommendation, quote }) {
             <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
               {summary_analysis}
             </p>
+
+            {onOpenPaperTrade && (
+              <div className="pt-1">
+                <button
+                  onClick={() => onOpenPaperTrade(recommendation)}
+                  className="px-4 py-1.5 rounded-xl text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 transition-all inline-flex items-center gap-1.5 shadow-md shadow-cyan-500/10"
+                >
+                  <Briefcase className="w-3.5 h-3.5 text-cyan-400" />
+                  Execute Simulated Trade ({rating})
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Quick Metrics Cards */}

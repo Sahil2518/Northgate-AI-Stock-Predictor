@@ -7,7 +7,8 @@ import {
   Activity, 
   Search,
   ShieldCheck,
-  Zap
+  Zap,
+  Briefcase
 } from 'lucide-react';
 
 const QUICK_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'TSLA', 'GOOGL', 'AMZN', 'META', 'SPY'];
@@ -34,6 +35,7 @@ export default function Navbar({
     { id: 'prediction', label: 'Price Forecaster', icon: BrainCircuit },
     { id: 'sentiment', label: 'News Sentiment', icon: Newspaper },
     { id: 'portfolio', label: 'Portfolio Optimizer', icon: PieChart },
+    { id: 'paper', label: 'Paper Trading', icon: Briefcase },
     { id: 'technicals', label: 'Technical Engine', icon: Activity },
   ];
 
