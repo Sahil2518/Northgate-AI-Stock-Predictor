@@ -49,6 +49,11 @@ export const api = {
   resetPaperAccount: () => apiClient.post('/paper-trading/reset').then(res => res.data),
   getBrokerStatus: () => apiClient.get('/paper-trading/broker-status').then(res => res.data),
 
+  // Funding & Cashier Wallet Hub
+  depositCash: (data) => apiClient.post('/paper-trading/wallet/deposit', data).then(res => res.data),
+  withdrawCash: (data) => apiClient.post('/paper-trading/wallet/withdraw', data).then(res => res.data),
+  getWalletTransactions: () => apiClient.get('/paper-trading/wallet/transactions').then(res => res.data),
+
   // System liveness and healthcheck
   checkHealth: () => axios.get(HEALTH_URL).then(res => res.data),
 };

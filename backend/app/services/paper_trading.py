@@ -12,13 +12,28 @@ import datetime
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 from app.models.schemas import (
-    PaperOrderRequest, PaperPosition, PaperTradeHistory, PaperAccountSummary
+    PaperOrderRequest, PaperPosition, PaperTradeHistory, PaperAccountSummary,
+    CashTransactionRecord, WalletTransactionRequest
 )
 from app.services.market_data import fetch_stock_quote
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 STATE_FILE = DATA_DIR / "paper_account.json"
 DEFAULT_CAPITAL = 100000.0
+
+def _initial_cash_tx() -> List[Dict[str, Any]]:
+    return [
+        {
+            "id": f"tx_init_{uuid.uuid4().hex[:8]}",
+            "type": "ACCOUNT_RESET",
+            "amount": DEFAULT_CAPITAL,
+            "balance_after": DEFAULT_CAPITAL,
+            "method": "INITIAL_ALLOCATION",
+            "status": "SETTLED",
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "description": "Initial virtual trading capital credited"
+        }
+    ]
 
 def _ensure_storage():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -27,7 +42,10 @@ def _ensure_storage():
             "cash_balance": DEFAULT_CAPITAL,
             "initial_balance": DEFAULT_CAPITAL,
             "positions": {},
-            "trade_history": []
+            "trade_history": [],
+            "cash_transactions": _initial_cash_tx(),
+            "total_deposited": DEFAULT_CAPITAL,
+            "total_withdrawn": 0.0
         }
         with open(STATE_FILE, "w", encoding="utf-8") as f:
             json.dump(initial_state, f, indent=2)
@@ -36,13 +54,23 @@ def _load_state() -> Dict[str, Any]:
     _ensure_storage()
     try:
         with open(STATE_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            state = json.load(f)
+            if "cash_transactions" not in state:
+                state["cash_transactions"] = _initial_cash_tx()
+            if "total_deposited" not in state:
+                state["total_deposited"] = float(state.get("initial_balance", DEFAULT_CAPITAL))
+            if "total_withdrawn" not in state:
+                state["total_withdrawn"] = 0.0
+            return state
     except Exception:
         return {
             "cash_balance": DEFAULT_CAPITAL,
             "initial_balance": DEFAULT_CAPITAL,
             "positions": {},
-            "trade_history": []
+            "trade_history": [],
+            "cash_transactions": _initial_cash_tx(),
+            "total_deposited": DEFAULT_CAPITAL,
+            "total_withdrawn": 0.0
         }
 
 def _save_state(state: Dict[str, Any]):
@@ -166,6 +194,20 @@ def get_paper_account() -> PaperAccountSummary:
             trigger_reason=t.get("trigger_reason", "Manual Order")
         ) for t in history_raw[:25]
     ]
+
+    cash_tx_raw = state.get("cash_transactions", [])
+    cash_tx_objects = [
+        CashTransactionRecord(
+            id=tx["id"],
+            type=tx["type"],
+            amount=float(tx["amount"]),
+            balance_after=float(tx["balance_after"]),
+            method=tx.get("method", "ACH"),
+            status=tx.get("status", "SETTLED"),
+            timestamp=tx["timestamp"],
+            description=tx.get("description", "")
+        ) for tx in cash_tx_raw[:50]
+    ]
     
     return PaperAccountSummary(
         cash_balance=round(cash, 2),
@@ -178,7 +220,10 @@ def get_paper_account() -> PaperAccountSummary:
         total_trades_count=len(history_raw),
         win_rate_pct=round(win_rate, 1),
         positions=active_positions,
-        trade_history=history_objects
+        trade_history=history_objects,
+        cash_transactions=cash_tx_objects,
+        total_deposited=round(float(state.get("total_deposited", DEFAULT_CAPITAL)), 2),
+        total_withdrawn=round(float(state.get("total_withdrawn", 0.0)), 2)
     )
 
 def execute_paper_order(request: PaperOrderRequest) -> PaperAccountSummary:
@@ -243,6 +288,20 @@ def execute_paper_order(request: PaperOrderRequest) -> PaperAccountSummary:
             "trigger_reason": "Manual Order"
         }
         history.insert(0, trade_record)
+
+        # Log Cash Movement Ledger
+        cash_tx = state.get("cash_transactions", [])
+        cash_tx.insert(0, {
+            "id": f"tx_buy_{uuid.uuid4().hex[:8]}",
+            "type": "STOCK_BUY",
+            "amount": -round(total_cost, 2),
+            "balance_after": round(cash, 2),
+            "method": "EXCHANGE_SETTLEMENT",
+            "status": "SETTLED",
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "description": f"Executed BUY {request.shares} {ticker} @ ${exec_price:.2f}"
+        })
+        state["cash_transactions"] = cash_tx
         
     elif request.action == "SELL":
         if ticker not in positions:
@@ -279,6 +338,20 @@ def execute_paper_order(request: PaperOrderRequest) -> PaperAccountSummary:
             "trigger_reason": "Manual Order"
         }
         history.insert(0, trade_record)
+
+        # Log Cash Movement Ledger
+        cash_tx = state.get("cash_transactions", [])
+        cash_tx.insert(0, {
+            "id": f"tx_sell_{uuid.uuid4().hex[:8]}",
+            "type": "STOCK_SELL",
+            "amount": round(proceeds, 2),
+            "balance_after": round(cash, 2),
+            "method": "EXCHANGE_SETTLEMENT",
+            "status": "SETTLED",
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "description": f"Executed SELL {request.shares} {ticker} @ ${exec_price:.2f}"
+        })
+        state["cash_transactions"] = cash_tx
         
     state["cash_balance"] = round(cash, 2)
     state["positions"] = positions
@@ -287,13 +360,76 @@ def execute_paper_order(request: PaperOrderRequest) -> PaperAccountSummary:
     
     return get_paper_account()
 
+def deposit_cash(amount: float, method: str = "ACH", note: Optional[str] = None) -> PaperAccountSummary:
+    """Deposit virtual cash into the trading account via simulated banking rails."""
+    if amount <= 0:
+        raise ValueError("Deposit amount must be strictly greater than $0.")
+        
+    state = _load_state()
+    cash = float(state.get("cash_balance", DEFAULT_CAPITAL)) + amount
+    total_dep = float(state.get("total_deposited", DEFAULT_CAPITAL)) + amount
+    
+    tx_list = state.get("cash_transactions", [])
+    tx_record = {
+        "id": f"tx_dep_{uuid.uuid4().hex[:8]}",
+        "type": "DEPOSIT",
+        "amount": round(amount, 2),
+        "balance_after": round(cash, 2),
+        "method": method.upper(),
+        "status": "SETTLED",
+        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "description": f"Deposit via {method.upper()} (+${amount:,.2f}) {f'[{note}]' if note else ''}".strip()
+    }
+    tx_list.insert(0, tx_record)
+    
+    state["cash_balance"] = round(cash, 2)
+    state["total_deposited"] = round(total_dep, 2)
+    state["cash_transactions"] = tx_list
+    _save_state(state)
+    return get_paper_account()
+
+def withdraw_cash(amount: float, method: str = "ACH", note: Optional[str] = None) -> PaperAccountSummary:
+    """Withdraw virtual cash from the trading account back to a linked bank."""
+    if amount <= 0:
+        raise ValueError("Withdrawal amount must be strictly greater than $0.")
+        
+    state = _load_state()
+    cash = float(state.get("cash_balance", DEFAULT_CAPITAL))
+    if amount > cash:
+        raise ValueError(f"Insufficient cash balance for withdrawal. Requested ${amount:,.2f}, available cash is ${cash:,.2f}.")
+        
+    cash -= amount
+    total_wth = float(state.get("total_withdrawn", 0.0)) + amount
+    
+    tx_list = state.get("cash_transactions", [])
+    tx_record = {
+        "id": f"tx_wth_{uuid.uuid4().hex[:8]}",
+        "type": "WITHDRAWAL",
+        "amount": -round(amount, 2),
+        "balance_after": round(cash, 2),
+        "method": method.upper(),
+        "status": "SETTLED",
+        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "description": f"Withdrawal to {method.upper()} (-${amount:,.2f}) {f'[{note}]' if note else ''}".strip()
+    }
+    tx_list.insert(0, tx_record)
+    
+    state["cash_balance"] = round(cash, 2)
+    state["total_withdrawn"] = round(total_wth, 2)
+    state["cash_transactions"] = tx_list
+    _save_state(state)
+    return get_paper_account()
+
 def reset_paper_account() -> PaperAccountSummary:
     """Resets the paper trading account back to $100,000 cash balance."""
     initial_state = {
         "cash_balance": DEFAULT_CAPITAL,
         "initial_balance": DEFAULT_CAPITAL,
         "positions": {},
-        "trade_history": []
+        "trade_history": [],
+        "cash_transactions": _initial_cash_tx(),
+        "total_deposited": DEFAULT_CAPITAL,
+        "total_withdrawn": 0.0
     }
     _save_state(initial_state)
     return get_paper_account()

@@ -263,6 +263,23 @@ class PaperTradeHistory(BaseModel):
     executed_at: str
     trigger_reason: str  # "Manual Order", "Stop-Loss Triggered", "Target Reached"
 
+# ----------------- Wallet & Cashier Schemas -----------------
+
+class WalletTransactionRequest(BaseModel):
+    amount: float = Field(..., gt=0, description="Transaction amount in USD")
+    method: str = Field(default="ACH", description="Payment or transfer method: ACH, WIRE, CARD, CHECKING")
+    note: Optional[str] = Field(default=None, description="Optional memo or reference")
+
+class CashTransactionRecord(BaseModel):
+    id: str
+    type: str  # "DEPOSIT", "WITHDRAWAL", "STOCK_BUY", "STOCK_SELL", "ACCOUNT_RESET"
+    amount: float
+    balance_after: float
+    method: str
+    status: str  # "SETTLED", "COMPLETED"
+    timestamp: str
+    description: str
+
 class PaperAccountSummary(BaseModel):
     cash_balance: float
     portfolio_market_value: float
@@ -275,6 +292,9 @@ class PaperAccountSummary(BaseModel):
     win_rate_pct: float
     positions: List[PaperPosition]
     trade_history: List[PaperTradeHistory]
+    cash_transactions: Optional[List[CashTransactionRecord]] = []
+    total_deposited: Optional[float] = 0.0
+    total_withdrawn: Optional[float] = 0.0
 
 class BrokerStatusResponse(BaseModel):
     active_broker: str

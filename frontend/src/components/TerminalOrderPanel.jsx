@@ -12,7 +12,8 @@ import {
   Percent,
   Sliders,
   DollarSign,
-  ArrowRight
+  ArrowRight,
+  Wallet
 } from 'lucide-react';
 
 export default function TerminalOrderPanel({
@@ -22,6 +23,7 @@ export default function TerminalOrderPanel({
   accountData,
   onExecuteOrder,
   onResetAccount,
+  onOpenWallet,
   isPaperLoading
 }) {
   const [action, setAction] = useState('BUY');
@@ -337,6 +339,16 @@ export default function TerminalOrderPanel({
             {isPnlPositive ? '+' : ''}${totalPnl.toFixed(2)}
           </span>
         </div>
+
+        {/* Deposit / Withdraw Action Button */}
+        <button
+          type="button"
+          onClick={onOpenWallet}
+          className="w-full mt-2 py-2 px-3 rounded-lg bg-[#0E1524] hover:bg-[#162138] border border-[#232F48] hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300 font-sans font-semibold text-xs transition-all flex items-center justify-center gap-2 group shadow-sm"
+        >
+          <Wallet className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+          <span>Deposit / Cashier Hub</span>
+        </button>
       </div>
 
     </div>

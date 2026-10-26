@@ -199,3 +199,44 @@ def test_broker_adapter_status():
     assert data["paper_mode"] is True
     assert len(data["supported_features"]) > 0
 
+def test_wallet_deposit_and_withdrawal():
+    # 1. Reset account
+    client.post("/api/v1/paper-trading/reset")
+    
+    # 2. Deposit $25,000 via ACH
+    dep_res = client.post("/api/v1/paper-trading/wallet/deposit", json={
+        "amount": 25000.0,
+        "method": "ACH",
+        "note": "Test ACH Deposit"
+    })
+    assert dep_res.status_code == 200
+    dep_data = dep_res.json()
+    assert dep_data["cash_balance"] == 125000.0
+    assert len(dep_data["cash_transactions"]) >= 2
+    
+    # 3. Withdraw $10,000 via WIRE
+    wth_res = client.post("/api/v1/paper-trading/wallet/withdraw", json={
+        "amount": 10000.0,
+        "method": "WIRE",
+        "note": "Test Fedwire Withdrawal"
+    })
+    assert wth_res.status_code == 200
+    wth_data = wth_res.json()
+    assert wth_data["cash_balance"] == 115000.0
+    
+    # 4. Check Transactions Ledger
+    tx_res = client.get("/api/v1/paper-trading/wallet/transactions")
+    assert tx_res.status_code == 200
+    tx_list = tx_res.json()
+    assert len(tx_list) >= 3
+    assert any(tx["type"] == "DEPOSIT" and tx["amount"] == 25000.0 for tx in tx_list)
+    assert any(tx["type"] == "WITHDRAWAL" and tx["amount"] == -10000.0 for tx in tx_list)
+    
+    # 5. Over-withdrawal protection test
+    fail_res = client.post("/api/v1/paper-trading/wallet/withdraw", json={
+        "amount": 99999999.0,
+        "method": "ACH"
+    })
+    assert fail_res.status_code == 400
+    assert "Insufficient" in fail_res.json()["detail"]
+

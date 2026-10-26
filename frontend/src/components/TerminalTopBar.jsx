@@ -8,10 +8,11 @@ import {
   Copy, 
   Check, 
   TrendingUp, 
-  Sliders,
-  Maximize2,
-  Terminal,
-  Activity
+  Sliders, 
+  Maximize2, 
+  Terminal, 
+  Activity,
+  Wallet
 } from 'lucide-react';
 
 const QUICK_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'TSLA', 'GOOGL', 'AMZN', 'META', 'SPY'];
@@ -22,6 +23,8 @@ export default function TerminalTopBar({
   quote,
   recommendation,
   onRefresh,
+  onOpenWallet,
+  cashBalance = 100000,
   isLoading
 }) {
   const [searchInput, setSearchInput] = useState('');
@@ -186,6 +189,20 @@ export default function TerminalTopBar({
 
       {/* Right: Live Market Clock & Actions */}
       <div className="flex items-center space-x-3">
+        {/* Wallet / Cashier Trigger Pill */}
+        <button
+          type="button"
+          onClick={onOpenWallet}
+          title="Open Cashier & Wallet Hub (Deposit / Withdraw)"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#0D1424] hover:bg-[#152038] border border-[#232F48] hover:border-emerald-500/40 text-xs font-mono text-emerald-400 hover:text-emerald-300 transition-all shadow-sm group"
+        >
+          <Wallet className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+          <span className="font-bold text-[11px] tabular-nums">
+            ${Number(cashBalance).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+          </span>
+          <span className="text-[10px] text-slate-400 font-sans hidden md:inline">Cash</span>
+        </button>
+
         {/* Market Session Status */}
         <div className="hidden sm:flex items-center space-x-2 px-2.5 py-1 rounded-md bg-[#07090E] border border-[#171D2B] text-xs">
           <span className={`w-1.5 h-1.5 rounded-full ${marketStatus.isOpen ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />

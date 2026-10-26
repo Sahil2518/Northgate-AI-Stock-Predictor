@@ -9,6 +9,7 @@ import SentimentView from './components/SentimentView';
 import PortfolioOptimizer from './components/PortfolioOptimizer';
 import TechnicalView from './components/TechnicalView';
 import PaperTradingDesk from './components/PaperTradingDesk';
+import WalletModal from './components/WalletModal';
 import Toast from './components/Toast';
 import api from './services/api';
 
@@ -17,6 +18,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('workspace'); // 'workspace', 'prediction', 'sentiment', 'portfolio', 'paper', 'technicals'
   const [isLive, setIsLive] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
+  const [isWalletOpen, setIsWalletOpen] = useState(false);
+  const [brokerStatus, setBrokerStatus] = useState(null);
 
   // Data States
   const [quote, setQuote] = useState(null);
@@ -48,18 +51,20 @@ export default function App() {
     }, 4500);
   };
 
-  // 1. Initial Load: Check Health, Watchlist & Paper Broker
+  // 1. Initial Load: Check Health, Watchlist, Paper Broker & Engine Status
   useEffect(() => {
     const initApp = async () => {
       try {
         await api.checkHealth();
         setIsLive(true);
-        const [wl, acc] = await Promise.all([
+        const [wl, acc, bStatus] = await Promise.all([
           api.getWatchlist().catch(() => []),
-          api.getPaperAccount().catch(() => null)
+          api.getPaperAccount().catch(() => null),
+          api.getBrokerStatus().catch(() => null)
         ]);
         if (wl && wl.length) setWatchlist(wl);
         if (acc) setPaperAccount(acc);
+        if (bStatus) setBrokerStatus(bStatus);
       } catch (err) {
         console.warn('Backend note:', err.message);
         setIsLive(false);
@@ -189,6 +194,30 @@ export default function App() {
     }
   };
 
+  const handleDepositCash = async (amount, method) => {
+    try {
+      const res = await api.depositCash({ amount, method });
+      setPaperAccount(res);
+      showToast('success', `Credited +$${Number(amount).toLocaleString()} via ${method}.`);
+      return res;
+    } catch (err) {
+      showToast('error', err.response?.data?.detail || err.message || 'Deposit transaction failed');
+      throw err;
+    }
+  };
+
+  const handleWithdrawCash = async (amount, method) => {
+    try {
+      const res = await api.withdrawCash({ amount, method });
+      setPaperAccount(res);
+      showToast('info', `Withdrew -$${Number(amount).toLocaleString()} to linked bank account.`);
+      return res;
+    } catch (err) {
+      showToast('error', err.response?.data?.detail || err.message || 'Withdrawal transaction failed');
+      throw err;
+    }
+  };
+
   const handleSelectTicker = (newTicker) => {
     if (newTicker !== currentTicker) {
       setCurrentTicker(newTicker);
@@ -206,6 +235,7 @@ export default function App() {
       <TerminalSidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        onOpenWallet={() => setIsWalletOpen(true)}
         isLive={isLive}
       />
 
@@ -219,6 +249,8 @@ export default function App() {
           quote={quote}
           recommendation={recommendation}
           onRefresh={() => fetchTickerData(currentTicker)}
+          onOpenWallet={() => setIsWalletOpen(true)}
+          cashBalance={paperAccount?.cash_balance ?? 100000}
           isLoading={isLoading}
         />
 
@@ -262,6 +294,7 @@ export default function App() {
                 accountData={paperAccount}
                 onExecuteOrder={handleExecutePaperOrder}
                 onResetAccount={handleResetPaperAccount}
+                onOpenWallet={() => setIsWalletOpen(true)}
                 isPaperLoading={isPaperLoading}
               />
             </div>
@@ -331,6 +364,16 @@ export default function App() {
         )}
 
       </div>
+
+      {/* Institutional Cashier & Wallet Hub Modal */}
+      <WalletModal
+        isOpen={isWalletOpen}
+        onClose={() => setIsWalletOpen(false)}
+        accountData={paperAccount}
+        onDeposit={handleDepositCash}
+        onWithdraw={handleWithdrawCash}
+        brokerStatus={brokerStatus}
+      />
 
     </div>
   );

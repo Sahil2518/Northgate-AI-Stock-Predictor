@@ -11,10 +11,11 @@ import {
   HelpCircle,
   ShieldCheck,
   TrendingUp,
-  Cpu
+  Cpu,
+  Wallet
 } from 'lucide-react';
 
-export default function TerminalSidebar({ activeTab, setActiveTab, isLive }) {
+export default function TerminalSidebar({ activeTab, setActiveTab, onOpenWallet, isLive }) {
   const tools = [
     { id: 'workspace', label: 'Trading Terminal', icon: BarChart2, badge: 'PRO' },
     { id: 'prediction', label: 'AI Sequence Forecaster', icon: BrainCircuit },
@@ -72,6 +73,18 @@ export default function TerminalSidebar({ activeTab, setActiveTab, isLive }) {
 
       {/* Bottom Status & Settings */}
       <div className="flex flex-col items-center space-y-3">
+        {/* Cashier / Wallet Hub Shortcut */}
+        <button
+          onClick={onOpenWallet}
+          title="Cashier & Wallet Hub"
+          className="relative w-10 h-10 rounded-xl bg-[#0E1422] border border-[#232F48] flex items-center justify-center text-emerald-400 hover:text-emerald-300 hover:border-emerald-500/50 hover:bg-[#142033] transition-all group"
+        >
+          <Wallet className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          <span className="absolute left-14 px-2 py-1 bg-[#0E1422] border border-[#232F48] rounded-md text-[11px] font-sans text-slate-200 whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-xl font-medium">
+            Cashier & Funding Hub
+          </span>
+        </button>
+
         {/* System Health Dot */}
         <div 
           title={isLive ? 'FastAPI Neural Rest Engine: Online' : 'Connecting Engine...'}
