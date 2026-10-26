@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import Navbar from './components/Navbar';
-import TickerBar from './components/TickerBar';
-import StockHeader from './components/StockHeader';
-import RecommendationCard from './components/RecommendationCard';
+import TerminalSidebar from './components/TerminalSidebar';
+import TerminalTopBar from './components/TerminalTopBar';
+import TerminalChartCanvas from './components/TerminalChartCanvas';
+import TerminalDock from './components/TerminalDock';
+import TerminalOrderPanel from './components/TerminalOrderPanel';
 import PredictionChart from './components/PredictionChart';
 import SentimentView from './components/SentimentView';
 import PortfolioOptimizer from './components/PortfolioOptimizer';
@@ -10,25 +11,13 @@ import TechnicalView from './components/TechnicalView';
 import PaperTradingDesk from './components/PaperTradingDesk';
 import Toast from './components/Toast';
 import api from './services/api';
-import { 
-  TrendingUp, 
-  BrainCircuit, 
-  PieChart, 
-  Newspaper, 
-  Activity, 
-  ShieldCheck, 
-  AlertCircle,
-  RefreshCw,
-  Terminal,
-  Cpu
-} from 'lucide-react';
 
 export default function App() {
   const [currentTicker, setCurrentTicker] = useState('AAPL');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('workspace'); // 'workspace', 'prediction', 'sentiment', 'portfolio', 'paper', 'technicals'
   const [isLive, setIsLive] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
-  
+
   // Data States
   const [quote, setQuote] = useState(null);
   const [recommendation, setRecommendation] = useState(null);
@@ -44,7 +33,7 @@ export default function App() {
   // Toast Notification State
   const [toast, setToast] = useState(null);
 
-  // Loading & Error States
+  // Loading States
   const [isLoading, setIsLoading] = useState(true);
   const [isPredictLoading, setIsPredictLoading] = useState(false);
   const [isPortfolioLoading, setIsPortfolioLoading] = useState(false);
@@ -59,7 +48,7 @@ export default function App() {
     }, 4500);
   };
 
-  // Initial load: health check, watchlist & paper account
+  // 1. Initial Load: Check Health, Watchlist & Paper Broker
   useEffect(() => {
     const initApp = async () => {
       try {
@@ -72,14 +61,14 @@ export default function App() {
         if (wl && wl.length) setWatchlist(wl);
         if (acc) setPaperAccount(acc);
       } catch (err) {
-        console.warn('Backend connection note:', err.message);
+        console.warn('Backend note:', err.message);
         setIsLive(false);
       }
     };
     initApp();
   }, []);
 
-  // Fetch all ticker-specific data when currentTicker changes
+  // 2. Fetch Ticker Data on currentTicker Change
   const fetchTickerData = async (ticker = currentTicker) => {
     setIsLoading(true);
     setErrorMsg(null);
@@ -109,7 +98,7 @@ export default function App() {
     fetchTickerData(currentTicker);
   }, [currentTicker]);
 
-  // Fetch predictions separately or when horizon changes
+  // 3. Fetch Neural Predictions on Ticker or Horizon Change
   useEffect(() => {
     let isSubscribed = true;
 
@@ -131,7 +120,7 @@ export default function App() {
     return () => { isSubscribed = false; };
   }, [currentTicker, predictionHorizon]);
 
-  // Auto-run portfolio optimization when visiting portfolio tab the first time
+  // Auto-run portfolio optimization if portfolio tab is selected for first time
   useEffect(() => {
     if (activeTab === 'portfolio' && !portfolio) {
       handleRunOptimization({
@@ -177,7 +166,7 @@ export default function App() {
     try {
       const res = await api.executePaperOrder(order);
       setPaperAccount(res);
-      showToast('success', `Filled Order: ${order.action} ${order.shares} ${order.ticker} at market price.`);
+      showToast('success', `Executed ${order.action} ${order.shares} ${order.ticker} at market price.`);
       return res;
     } catch (err) {
       showToast('error', err.response?.data?.detail || err.message);
@@ -192,7 +181,7 @@ export default function App() {
     try {
       const res = await api.resetPaperAccount();
       setPaperAccount(res);
-      showToast('info', 'Paper trading account reset to initial $100,000 cash.');
+      showToast('info', 'Virtual trading account reset to initial $100,000 cash.');
     } catch (err) {
       showToast('error', 'Account reset failed.');
     } finally {
@@ -200,202 +189,148 @@ export default function App() {
     }
   };
 
-  const handleOpenPaperTrade = (rec) => {
-    if (rec?.ticker) {
-      setCurrentTicker(rec.ticker);
-    }
-    setActiveTab('paper');
-  };
-
   const handleSelectTicker = (newTicker) => {
     if (newTicker !== currentTicker) {
       setCurrentTicker(newTicker);
-      showToast('info', `Switched active terminal ticker to ${newTicker}.`);
+      showToast('info', `Active chart switched to ${newTicker}.`);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#080B11] text-slate-100 flex flex-col font-sans selection:bg-sky-500/20 selection:text-sky-300">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#07090E] text-slate-100 font-sans select-none antialiased">
       
-      {/* Toast Notification Container */}
+      {/* Toast System Notification */}
       <Toast toast={toast} onClose={() => setToast(null)} />
 
-      {/* Institutional Top Navbar */}
-      <Navbar
-        currentTicker={currentTicker}
-        onSelectTicker={handleSelectTicker}
+      {/* 1. Left Vertical Tool Rail (TradingView Pro Style) */}
+      <TerminalSidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         isLive={isLive}
       />
 
-      {/* Real-Time Live Feed Ribbon */}
-      <TickerBar
-        watchlist={watchlist}
-        currentTicker={currentTicker}
-        onSelectTicker={handleSelectTicker}
-      />
-
-      {/* Main Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* 2. Main Terminal Canvas Body */}
+      <div className="flex flex-col flex-1 h-full min-w-0 overflow-hidden">
         
-        {/* Error Alert */}
-        {errorMsg && (
-          <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-3.5 flex items-center justify-between text-rose-300 text-xs">
-            <div className="flex items-center gap-2.5">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-            <button
-              onClick={() => fetchTickerData(currentTicker)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-rose-500/20 text-rose-200 text-xs font-semibold hover:bg-rose-500/30 transition-all font-mono"
-            >
-              <RefreshCw className="w-3 h-3" /> Retry Sync
-            </button>
-          </div>
-        )}
+        {/* Top Asset Command Bar */}
+        <TerminalTopBar
+          currentTicker={currentTicker}
+          onSelectTicker={handleSelectTicker}
+          quote={quote}
+          recommendation={recommendation}
+          onRefresh={() => fetchTickerData(currentTicker)}
+          isLoading={isLoading}
+        />
 
-        {/* Global Asset Header: Shown on relevant asset tabs */}
-        {activeTab !== 'portfolio' && (
-          <StockHeader
-            quote={quote}
-            currentTicker={currentTicker}
-            recommendation={recommendation}
-            onOpenPaperTrade={handleOpenPaperTrade}
-            onRefresh={() => fetchTickerData(currentTicker)}
-            isLoading={isLoading}
-          />
-        )}
-
-        {/* Tab 1: Advisory Overview */}
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            <RecommendationCard 
-              recommendation={recommendation} 
-              quote={quote}
-              onOpenPaperTrade={handleOpenPaperTrade}
-            />
-
-            {/* Side-by-Side Dual Intelligence Panels */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 font-sans">
-                    <BrainCircuit className="w-3.5 h-3.5 text-sky-400" />
-                    Neural Forecasting Preview
-                  </h3>
-                  <button 
-                    onClick={() => setActiveTab('prediction')}
-                    className="text-xs text-sky-400 hover:text-sky-300 font-mono font-semibold"
-                  >
-                    Expanded View →
-                  </button>
-                </div>
-                <PredictionChart
+        {/* Dynamic Center Workstation */}
+        {activeTab === 'workspace' && (
+          <div className="flex flex-1 min-h-0 overflow-hidden">
+            
+            {/* Center Area: Chart Canvas + Bottom Dock (70%) */}
+            <div className="flex flex-col flex-1 min-w-0 h-full border-r border-[#171D2B]">
+              
+              {/* Top Chart Canvas */}
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <TerminalChartCanvas
+                  currentTicker={currentTicker}
+                  quote={quote}
                   predictionData={prediction}
+                  historyData={history}
+                  predictionHorizon={predictionHorizon}
                   onHorizonChange={setPredictionHorizon}
-                  currentHorizon={predictionHorizon}
-                  isLoading={isPredictLoading}
+                  isPredictLoading={isPredictLoading}
                 />
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 font-sans">
-                    <Newspaper className="w-3.5 h-3.5 text-emerald-400" />
-                    Market Media Sentiment
-                  </h3>
-                  <button 
-                    onClick={() => setActiveTab('sentiment')}
-                    className="text-xs text-sky-400 hover:text-sky-300 font-mono font-semibold"
-                  >
-                    Full Sentiment Engine →
-                  </button>
-                </div>
-                <SentimentView
-                  sentimentData={sentiment}
-                  ticker={currentTicker}
-                  isLoading={isLoading}
-                />
-              </div>
+              {/* Bottom Multi-Tab Dock */}
+              <TerminalDock
+                accountData={paperAccount}
+                recommendation={recommendation}
+                sentimentData={sentiment}
+                stressTestData={stressTest}
+                onExecuteOrder={handleExecutePaperOrder}
+                currentTicker={currentTicker}
+              />
             </div>
+
+            {/* Right Pinned Execution & AI Conviction Dock (30% / 360px) */}
+            <div className="w-80 lg:w-96 shrink-0 h-full overflow-hidden">
+              <TerminalOrderPanel
+                currentTicker={currentTicker}
+                quote={quote}
+                recommendation={recommendation}
+                accountData={paperAccount}
+                onExecuteOrder={handleExecutePaperOrder}
+                onResetAccount={handleResetPaperAccount}
+                isPaperLoading={isPaperLoading}
+              />
+            </div>
+
           </div>
         )}
 
-        {/* Tab 2: AI Price Forecaster */}
+        {/* Expanded Deep-Dive Views (Sidebar Navigation) */}
         {activeTab === 'prediction' && (
-          <PredictionChart
-            predictionData={prediction}
-            onHorizonChange={setPredictionHorizon}
-            currentHorizon={predictionHorizon}
-            isLoading={isPredictLoading}
-          />
-        )}
-
-        {/* Tab 3: News Sentiment */}
-        {activeTab === 'sentiment' && (
-          <SentimentView
-            sentimentData={sentiment}
-            ticker={currentTicker}
-            isLoading={isLoading}
-          />
-        )}
-
-        {/* Tab 4: Modern Portfolio Optimizer */}
-        {activeTab === 'portfolio' && (
-          <PortfolioOptimizer
-            portfolioData={portfolio}
-            onOptimize={handleRunOptimization}
-            isLoading={isPortfolioLoading}
-            stressTestData={stressTest}
-            onRunStressTest={handleRunStressTest}
-            isStressLoading={isStressLoading}
-          />
-        )}
-
-        {/* Tab 5: Paper Trading Terminal */}
-        {activeTab === 'paper' && (
-          <PaperTradingDesk
-            accountData={paperAccount}
-            onExecuteOrder={handleExecutePaperOrder}
-            onResetAccount={handleResetPaperAccount}
-            isLoading={isPaperLoading}
-            currentTicker={currentTicker}
-            currentPrice={quote?.current_price}
-            suggestedStopLoss={recommendation?.stop_loss_price}
-            suggestedTarget={recommendation?.target_price_30d}
-          />
-        )}
-
-        {/* Tab 6: Technical Engine */}
-        {activeTab === 'technicals' && (
-          <TechnicalView
-            technicalData={technicals}
-            historyData={history}
-            ticker={currentTicker}
-            isLoading={isLoading}
-          />
-        )}
-
-      </main>
-
-      {/* Institutional Enterprise Footer */}
-      <footer className="border-t border-[#1E273B] bg-[#080B11] py-6 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-2">
-          <div className="flex items-center justify-center space-x-2 font-mono text-[11px]">
-            <span className="font-bold text-slate-300 tracking-wider">NORTHGATE AI</span>
-            <span>·</span>
-            <span>PyTorch 2.14 LSTM Sequence Forecaster</span>
-            <span>·</span>
-            <span>XGBoost Gradient Boosting</span>
-            <span>·</span>
-            <span>Markowitz Mean-Variance MPT</span>
+          <div className="flex-1 overflow-y-auto p-6 bg-[#080B11]">
+            <PredictionChart
+              predictionData={prediction}
+              onHorizonChange={setPredictionHorizon}
+              currentHorizon={predictionHorizon}
+              isLoading={isPredictLoading}
+            />
           </div>
-          <p className="max-w-2xl mx-auto text-[10px] text-slate-600 leading-relaxed font-sans">
-            Disclaimer: For algorithmic research, simulated execution, and quantitative analysis. Deep learning forecasts and historical simulations do not guarantee future returns.
-          </p>
-        </div>
-      </footer>
+        )}
+
+        {activeTab === 'sentiment' && (
+          <div className="flex-1 overflow-y-auto p-6 bg-[#080B11]">
+            <SentimentView
+              sentimentData={sentiment}
+              ticker={currentTicker}
+              isLoading={isLoading}
+            />
+          </div>
+        )}
+
+        {activeTab === 'portfolio' && (
+          <div className="flex-1 overflow-y-auto p-6 bg-[#080B11]">
+            <PortfolioOptimizer
+              portfolioData={portfolio}
+              onOptimize={handleRunOptimization}
+              isLoading={isPortfolioLoading}
+              stressTestData={stressTest}
+              onRunStressTest={handleRunStressTest}
+              isStressLoading={isStressLoading}
+            />
+          </div>
+        )}
+
+        {activeTab === 'paper' && (
+          <div className="flex-1 overflow-y-auto p-6 bg-[#080B11]">
+            <PaperTradingDesk
+              accountData={paperAccount}
+              onExecuteOrder={handleExecutePaperOrder}
+              onResetAccount={handleResetPaperAccount}
+              isLoading={isPaperLoading}
+              currentTicker={currentTicker}
+              currentPrice={quote?.current_price}
+              suggestedStopLoss={recommendation?.stop_loss_price}
+              suggestedTarget={recommendation?.target_price_30d}
+            />
+          </div>
+        )}
+
+        {activeTab === 'technicals' && (
+          <div className="flex-1 overflow-y-auto p-6 bg-[#080B11]">
+            <TechnicalView
+              technicalData={technicals}
+              historyData={history}
+              ticker={currentTicker}
+              isLoading={isLoading}
+            />
+          </div>
+        )}
+
+      </div>
 
     </div>
   );
