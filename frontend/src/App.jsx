@@ -10,6 +10,7 @@ import PortfolioOptimizer from './components/PortfolioOptimizer';
 import TechnicalView from './components/TechnicalView';
 import PaperTradingDesk from './components/PaperTradingDesk';
 import WalletModal from './components/WalletModal';
+import AuthModal from './components/AuthModal';
 import Toast from './components/Toast';
 import api from './services/api';
 
@@ -19,6 +20,8 @@ export default function App() {
   const [isLive, setIsLive] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
   const [isWalletOpen, setIsWalletOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [brokerStatus, setBrokerStatus] = useState(null);
 
   // Data States
@@ -51,12 +54,33 @@ export default function App() {
     }, 4500);
   };
 
-  // 1. Initial Load: Check Health, Watchlist, Paper Broker & Engine Status
+  // 1. Initial Load: Check Health, Authenticate/Demo Session, Watchlist & Paper Broker
   useEffect(() => {
     const initApp = async () => {
       try {
         await api.checkHealth();
         setIsLive(true);
+
+        // Auto-authenticate as Demo Trader or load existing session
+        let user = null;
+        try {
+          if (api.getToken()) {
+            user = await api.getMe();
+          } else {
+            const demoRes = await api.loginDemo();
+            user = demoRes?.user || null;
+          }
+        } catch {
+          // Fallback to fresh demo session
+          try {
+            const demoRes = await api.loginDemo();
+            user = demoRes?.user || null;
+          } catch {
+            user = null;
+          }
+        }
+        if (user) setCurrentUser(user);
+
         const [wl, acc, bStatus] = await Promise.all([
           api.getWatchlist().catch(() => []),
           api.getPaperAccount().catch(() => null),
@@ -218,6 +242,39 @@ export default function App() {
     }
   };
 
+  const handleLogin = async (email, password) => {
+    const res = await api.login({ email, password });
+    setCurrentUser(res.user);
+    const acc = await api.getPaperAccount().catch(() => null);
+    if (acc) setPaperAccount(acc);
+    showToast('success', `Signed in as ${res.user.full_name}. Private portfolio loaded.`);
+    return res;
+  };
+
+  const handleRegister = async (email, password, fullName) => {
+    const res = await api.register({ email, password, full_name: fullName });
+    setCurrentUser(res.user);
+    const acc = await api.getPaperAccount().catch(() => null);
+    if (acc) setPaperAccount(acc);
+    showToast('success', `Welcome, ${res.user.full_name}! Private $100k sandbox initialized.`);
+    return res;
+  };
+
+  const handleDemoLogin = async () => {
+    const res = await api.loginDemo();
+    setCurrentUser(res.user);
+    const acc = await api.getPaperAccount().catch(() => null);
+    if (acc) setPaperAccount(acc);
+    showToast('info', 'Switched to Demo Institutional Trader ($100k Sandbox).');
+    return res;
+  };
+
+  const handleLogout = async () => {
+    api.logout();
+    await handleDemoLogin();
+    showToast('info', 'Logged out. Returned to Demo Trader session.');
+  };
+
   const handleSelectTicker = (newTicker) => {
     if (newTicker !== currentTicker) {
       setCurrentTicker(newTicker);
@@ -250,6 +307,8 @@ export default function App() {
           recommendation={recommendation}
           onRefresh={() => fetchTickerData(currentTicker)}
           onOpenWallet={() => setIsWalletOpen(true)}
+          onOpenAuth={() => setIsAuthOpen(true)}
+          currentUser={currentUser}
           cashBalance={paperAccount?.cash_balance ?? 100000}
           isLoading={isLoading}
         />
@@ -373,6 +432,17 @@ export default function App() {
         onDeposit={handleDepositCash}
         onWithdraw={handleWithdrawCash}
         brokerStatus={brokerStatus}
+      />
+
+      {/* Identity & Session Manager Modal */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        currentUser={currentUser}
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+        onDemoLogin={handleDemoLogin}
+        onLogout={handleLogout}
       />
 
     </div>

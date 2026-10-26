@@ -1,133 +1,85 @@
 """
-Northgate AI Stock Predictor - Paper Trading & Simulated Brokerage Engine
-========================================================================
-Provides simulated order execution, automated bracket stop-loss enforcement,
-position tracking, and persistent account state.
+Northgate AI Stock Predictor - Multi-Tenant Paper Trading & Brokerage Engine
+===========================================================================
+Provides user-isolated simulated order execution, automated bracket stop-loss enforcement,
+position tracking, and persistent SQLite database state.
 """
 
 import os
-import json
 import uuid
 import datetime
 from typing import Dict, Any, List, Optional
-from pathlib import Path
 from app.models.schemas import (
     PaperOrderRequest, PaperPosition, PaperTradeHistory, PaperAccountSummary,
     CashTransactionRecord, WalletTransactionRequest
 )
 from app.services.market_data import fetch_stock_quote
+from app.db.database import (
+    get_or_create_portfolio, update_portfolio, get_positions_by_user,
+    upsert_position, delete_position, add_trade, get_trades_by_user,
+    add_cash_transaction, get_cash_transactions_by_user, reset_user_portfolio_db,
+    get_user_by_email
+)
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-STATE_FILE = DATA_DIR / "paper_account.json"
 DEFAULT_CAPITAL = 100000.0
 
-def _initial_cash_tx() -> List[Dict[str, Any]]:
-    return [
-        {
-            "id": f"tx_init_{uuid.uuid4().hex[:8]}",
-            "type": "ACCOUNT_RESET",
-            "amount": DEFAULT_CAPITAL,
-            "balance_after": DEFAULT_CAPITAL,
-            "method": "INITIAL_ALLOCATION",
-            "status": "SETTLED",
-            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "description": "Initial virtual trading capital credited"
-        }
-    ]
+def _resolve_user_id(user_id: Optional[int] = None) -> int:
+    """Resolves to the specified user_id or seamlessly defaults to the Demo Trader account."""
+    if user_id is not None:
+        return user_id
+    demo = get_user_by_email("demo@northgate.ai")
+    return demo["id"] if demo else 1
 
-def _ensure_storage():
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    if not STATE_FILE.exists():
-        initial_state = {
-            "cash_balance": DEFAULT_CAPITAL,
-            "initial_balance": DEFAULT_CAPITAL,
-            "positions": {},
-            "trade_history": [],
-            "cash_transactions": _initial_cash_tx(),
-            "total_deposited": DEFAULT_CAPITAL,
-            "total_withdrawn": 0.0
-        }
-        with open(STATE_FILE, "w", encoding="utf-8") as f:
-            json.dump(initial_state, f, indent=2)
-
-def _load_state() -> Dict[str, Any]:
-    _ensure_storage()
-    try:
-        with open(STATE_FILE, "r", encoding="utf-8") as f:
-            state = json.load(f)
-            if "cash_transactions" not in state:
-                state["cash_transactions"] = _initial_cash_tx()
-            if "total_deposited" not in state:
-                state["total_deposited"] = float(state.get("initial_balance", DEFAULT_CAPITAL))
-            if "total_withdrawn" not in state:
-                state["total_withdrawn"] = 0.0
-            return state
-    except Exception:
-        return {
-            "cash_balance": DEFAULT_CAPITAL,
-            "initial_balance": DEFAULT_CAPITAL,
-            "positions": {},
-            "trade_history": [],
-            "cash_transactions": _initial_cash_tx(),
-            "total_deposited": DEFAULT_CAPITAL,
-            "total_withdrawn": 0.0
-        }
-
-def _save_state(state: Dict[str, Any]):
-    _ensure_storage()
-    with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump(state, f, indent=2)
-
-def get_paper_account() -> PaperAccountSummary:
+def get_paper_account(user_id: Optional[int] = None) -> PaperAccountSummary:
     """
-    Returns current account status, updates active positions with live market prices,
+    Returns current account status for a specific user, updates active positions with live market prices,
     and automatically executes any triggered stop-losses or target prices.
     """
-    state = _load_state()
-    cash = float(state.get("cash_balance", DEFAULT_CAPITAL))
-    initial = float(state.get("initial_balance", DEFAULT_CAPITAL))
-    positions_raw = state.get("positions", {})
-    history_raw = state.get("trade_history", [])
-    
+    uid = _resolve_user_id(user_id)
+    portfolio = get_or_create_portfolio(uid)
+    cash = float(portfolio["cash_balance"])
+    initial = float(portfolio["initial_balance"])
+    total_dep = float(portfolio.get("total_deposited", DEFAULT_CAPITAL))
+    total_wth = float(portfolio.get("total_withdrawn", 0.0))
+
+    positions_raw = get_positions_by_user(uid)
     active_positions: List[PaperPosition] = []
-    positions_to_remove = []
-    state_modified = False
-    
     total_market_val = 0.0
-    
-    for ticker, pos in list(positions_raw.items()):
+
+    for pos in positions_raw:
+        ticker = pos["ticker"]
         try:
             quote = fetch_stock_quote(ticker)
             current_price = quote.current_price
             company_name = quote.company_name
         except Exception:
-            current_price = pos["average_entry_price"]
+            current_price = float(pos["average_entry_price"])
             company_name = pos.get("company_name", f"{ticker} Corp.")
-            
+
         shares = float(pos["shares"])
         entry = float(pos["average_entry_price"])
         cost_basis = shares * entry
         market_val = shares * current_price
         unrealized = market_val - cost_basis
         unrealized_pct = (unrealized / cost_basis) * 100 if cost_basis > 0 else 0.0
-        
-        stop_loss = pos.get("stop_loss_price")
-        target_price = pos.get("target_price")
-        
+
+        stop_loss = float(pos["stop_loss_price"]) if pos.get("stop_loss_price") is not None else None
+        target_price = float(pos["target_price"]) if pos.get("target_price") is not None else None
+
         # Check automated bracket triggers
         triggered_reason = None
         if stop_loss and current_price <= stop_loss:
             triggered_reason = f"Automated Stop-Loss Triggered at ${stop_loss:.2f}"
         elif target_price and current_price >= target_price:
             triggered_reason = f"Target Price Profit Reached at ${target_price:.2f}"
-            
+
         if triggered_reason:
-            # Auto-execute closing trade
+            # Auto-execute closing trade in database
             realized_pnl = unrealized
             realized_pnl_pct = unrealized_pct
             cash += market_val
-            
-            trade = {
+
+            closing_trade = {
                 "id": str(uuid.uuid4())[:8],
                 "ticker": ticker,
                 "action": "SELL",
@@ -139,11 +91,22 @@ def get_paper_account() -> PaperAccountSummary:
                 "executed_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "trigger_reason": triggered_reason
             }
-            history_raw.insert(0, trade)
-            positions_to_remove.append(ticker)
-            state_modified = True
+            add_trade(uid, closing_trade)
+            delete_position(uid, ticker)
+
+            add_cash_transaction(uid, {
+                "id": f"tx_brk_{uuid.uuid4().hex[:8]}",
+                "type": "STOCK_SELL",
+                "amount": round(market_val, 2),
+                "balance_after": round(cash, 2),
+                "method": "AUTO_BRACKET",
+                "status": "SETTLED",
+                "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "description": f"{triggered_reason}: Liquidated {shares} {ticker} @ ${current_price:.2f}"
+            })
+            update_portfolio(uid, cash, total_dep, total_wth)
             continue
-            
+
         total_market_val += market_val
         active_positions.append(
             PaperPosition(
@@ -161,41 +124,32 @@ def get_paper_account() -> PaperAccountSummary:
                 opened_at=pos.get("opened_at", datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
             )
         )
-        
-    for t in positions_to_remove:
-        del positions_raw[t]
-        
-    if state_modified:
-        state["cash_balance"] = round(cash, 2)
-        state["positions"] = positions_raw
-        state["trade_history"] = history_raw
-        _save_state(state)
-        
+
     total_equity = cash + total_market_val
     total_pnl = total_equity - initial
     total_pnl_pct = (total_pnl / initial) * 100 if initial > 0 else 0.0
-    
-    # Calculate historical win rate
+
+    history_raw = get_trades_by_user(uid, limit=25)
     closed_trades = [t for t in history_raw if t.get("realized_pnl") is not None]
-    winning_trades = [t for t in closed_trades if t["realized_pnl"] > 0]
+    winning_trades = [t for t in closed_trades if float(t["realized_pnl"]) > 0]
     win_rate = (len(winning_trades) / len(closed_trades) * 100) if closed_trades else 0.0
-    
+
     history_objects = [
         PaperTradeHistory(
             id=t["id"],
             ticker=t["ticker"],
             action=t["action"],
-            shares=t["shares"],
-            execution_price=t["execution_price"],
-            total_amount=t["total_amount"],
-            realized_pnl=t.get("realized_pnl"),
-            realized_pnl_pct=t.get("realized_pnl_pct"),
+            shares=float(t["shares"]),
+            execution_price=float(t["execution_price"]),
+            total_amount=float(t["total_amount"]),
+            realized_pnl=float(t["realized_pnl"]) if t.get("realized_pnl") is not None else None,
+            realized_pnl_pct=float(t["realized_pnl_pct"]) if t.get("realized_pnl_pct") is not None else None,
             executed_at=t["executed_at"],
             trigger_reason=t.get("trigger_reason", "Manual Order")
-        ) for t in history_raw[:25]
+        ) for t in history_raw
     ]
 
-    cash_tx_raw = state.get("cash_transactions", [])
+    cash_tx_raw = get_cash_transactions_by_user(uid, limit=50)
     cash_tx_objects = [
         CashTransactionRecord(
             id=tx["id"],
@@ -206,9 +160,9 @@ def get_paper_account() -> PaperAccountSummary:
             status=tx.get("status", "SETTLED"),
             timestamp=tx["timestamp"],
             description=tx.get("description", "")
-        ) for tx in cash_tx_raw[:50]
+        ) for tx in cash_tx_raw
     ]
-    
+
     return PaperAccountSummary(
         cash_balance=round(cash, 2),
         portfolio_market_value=round(total_market_val, 2),
@@ -222,60 +176,54 @@ def get_paper_account() -> PaperAccountSummary:
         positions=active_positions,
         trade_history=history_objects,
         cash_transactions=cash_tx_objects,
-        total_deposited=round(float(state.get("total_deposited", DEFAULT_CAPITAL)), 2),
-        total_withdrawn=round(float(state.get("total_withdrawn", 0.0)), 2)
+        total_deposited=round(total_dep, 2),
+        total_withdrawn=round(total_wth, 2)
     )
 
-def execute_paper_order(request: PaperOrderRequest) -> PaperAccountSummary:
+def execute_paper_order(request: PaperOrderRequest, user_id: Optional[int] = None) -> PaperAccountSummary:
     """
-    Executes a simulated Buy or Sell order at the current market price with realistic slippage.
+    Executes a simulated Buy or Sell order at the current market price with realistic slippage
+    within the authenticated user's private SQLite ledger.
     """
-    state = _load_state()
-    cash = float(state.get("cash_balance", DEFAULT_CAPITAL))
-    positions = state.get("positions", {})
-    history = state.get("trade_history", [])
-    
+    uid = _resolve_user_id(user_id)
+    portfolio = get_or_create_portfolio(uid)
+    cash = float(portfolio["cash_balance"])
+    total_dep = float(portfolio.get("total_deposited", DEFAULT_CAPITAL))
+    total_wth = float(portfolio.get("total_withdrawn", 0.0))
+
+    positions_list = get_positions_by_user(uid)
+    positions_map = {p["ticker"]: p for p in positions_list}
+
     ticker = request.ticker.upper().strip()
     quote = fetch_stock_quote(ticker)
-    
+
     # Realistic 5 basis points execution slippage
     slippage = 0.0005
     exec_price = quote.current_price * (1 + slippage if request.action == "BUY" else 1 - slippage)
     exec_price = round(exec_price, 2)
-    
     total_cost = exec_price * request.shares
-    
+
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     if request.action == "BUY":
         if total_cost > cash:
             raise ValueError(f"Insufficient funds. Order requires ${total_cost:,.2f}, but available cash is ${cash:,.2f}.")
-            
+
         cash -= total_cost
-        
-        # Check if already holding position
-        if ticker in positions:
-            prev = positions[ticker]
+
+        if ticker in positions_map:
+            prev = positions_map[ticker]
             prev_shares = float(prev["shares"])
             prev_entry = float(prev["average_entry_price"])
             new_shares = prev_shares + request.shares
             new_entry = ((prev_shares * prev_entry) + total_cost) / new_shares
-            
-            positions[ticker]["shares"] = round(new_shares, 4)
-            positions[ticker]["average_entry_price"] = round(new_entry, 2)
-            if request.stop_loss_price:
-                positions[ticker]["stop_loss_price"] = request.stop_loss_price
-            if request.target_price:
-                positions[ticker]["target_price"] = request.target_price
+            sl = request.stop_loss_price or prev.get("stop_loss_price")
+            tp = request.target_price or prev.get("target_price")
+            upsert_position(uid, ticker, quote.company_name, round(new_shares, 4), round(new_entry, 2), sl, tp)
         else:
-            positions[ticker] = {
-                "shares": round(request.shares, 4),
-                "average_entry_price": exec_price,
-                "company_name": quote.company_name,
-                "stop_loss_price": request.stop_loss_price,
-                "target_price": request.target_price,
-                "opened_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-            }
-            
-        trade_record = {
+            upsert_position(uid, ticker, quote.company_name, round(request.shares, 4), exec_price, request.stop_loss_price, request.target_price)
+
+        add_trade(uid, {
             "id": str(uuid.uuid4())[:8],
             "ticker": ticker,
             "action": "BUY",
@@ -284,48 +232,52 @@ def execute_paper_order(request: PaperOrderRequest) -> PaperAccountSummary:
             "total_amount": round(total_cost, 2),
             "realized_pnl": None,
             "realized_pnl_pct": None,
-            "executed_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "executed_at": now_str,
             "trigger_reason": "Manual Order"
-        }
-        history.insert(0, trade_record)
+        })
 
-        # Log Cash Movement Ledger
-        cash_tx = state.get("cash_transactions", [])
-        cash_tx.insert(0, {
+        add_cash_transaction(uid, {
             "id": f"tx_buy_{uuid.uuid4().hex[:8]}",
             "type": "STOCK_BUY",
             "amount": -round(total_cost, 2),
             "balance_after": round(cash, 2),
             "method": "EXCHANGE_SETTLEMENT",
             "status": "SETTLED",
-            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": now_str,
             "description": f"Executed BUY {request.shares} {ticker} @ ${exec_price:.2f}"
         })
-        state["cash_transactions"] = cash_tx
-        
+
     elif request.action == "SELL":
-        if ticker not in positions:
+        if ticker not in positions_map:
             raise ValueError(f"Cannot sell {ticker}. No active position found.")
-            
-        current_holding = positions[ticker]
+
+        current_holding = positions_map[ticker]
         prev_shares = float(current_holding["shares"])
-        
+
         if request.shares > prev_shares:
             raise ValueError(f"Cannot sell {request.shares} shares. You only own {prev_shares} shares.")
-            
+
         proceeds = total_cost
         cash += proceeds
-        
+
         entry = float(current_holding["average_entry_price"])
         realized_pnl = (exec_price - entry) * request.shares
         realized_pnl_pct = ((exec_price - entry) / entry) * 100
-        
+
         if request.shares == prev_shares:
-            del positions[ticker]
+            delete_position(uid, ticker)
         else:
-            positions[ticker]["shares"] = round(prev_shares - request.shares, 4)
-            
-        trade_record = {
+            upsert_position(
+                uid,
+                ticker,
+                current_holding.get("company_name", f"{ticker} Corp."),
+                round(prev_shares - request.shares, 4),
+                entry,
+                current_holding.get("stop_loss_price"),
+                current_holding.get("target_price")
+            )
+
+        add_trade(uid, {
             "id": str(uuid.uuid4())[:8],
             "ticker": ticker,
             "action": "SELL",
@@ -334,102 +286,82 @@ def execute_paper_order(request: PaperOrderRequest) -> PaperAccountSummary:
             "total_amount": round(proceeds, 2),
             "realized_pnl": round(realized_pnl, 2),
             "realized_pnl_pct": round(realized_pnl_pct, 2),
-            "executed_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "executed_at": now_str,
             "trigger_reason": "Manual Order"
-        }
-        history.insert(0, trade_record)
+        })
 
-        # Log Cash Movement Ledger
-        cash_tx = state.get("cash_transactions", [])
-        cash_tx.insert(0, {
+        add_cash_transaction(uid, {
             "id": f"tx_sell_{uuid.uuid4().hex[:8]}",
             "type": "STOCK_SELL",
             "amount": round(proceeds, 2),
             "balance_after": round(cash, 2),
             "method": "EXCHANGE_SETTLEMENT",
             "status": "SETTLED",
-            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": now_str,
             "description": f"Executed SELL {request.shares} {ticker} @ ${exec_price:.2f}"
         })
-        state["cash_transactions"] = cash_tx
-        
-    state["cash_balance"] = round(cash, 2)
-    state["positions"] = positions
-    state["trade_history"] = history
-    _save_state(state)
-    
-    return get_paper_account()
 
-def deposit_cash(amount: float, method: str = "ACH", note: Optional[str] = None) -> PaperAccountSummary:
-    """Deposit virtual cash into the trading account via simulated banking rails."""
+    update_portfolio(uid, cash, total_dep, total_wth)
+    return get_paper_account(uid)
+
+def deposit_cash(amount: float, method: str = "ACH", note: Optional[str] = None, user_id: Optional[int] = None) -> PaperAccountSummary:
+    """Deposit virtual cash into the user's trading account via simulated banking rails."""
     if amount <= 0:
         raise ValueError("Deposit amount must be strictly greater than $0.")
-        
-    state = _load_state()
-    cash = float(state.get("cash_balance", DEFAULT_CAPITAL)) + amount
-    total_dep = float(state.get("total_deposited", DEFAULT_CAPITAL)) + amount
-    
-    tx_list = state.get("cash_transactions", [])
-    tx_record = {
+
+    uid = _resolve_user_id(user_id)
+    portfolio = get_or_create_portfolio(uid)
+    cash = float(portfolio["cash_balance"]) + amount
+    total_dep = float(portfolio.get("total_deposited", DEFAULT_CAPITAL)) + amount
+    total_wth = float(portfolio.get("total_withdrawn", 0.0))
+
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    add_cash_transaction(uid, {
         "id": f"tx_dep_{uuid.uuid4().hex[:8]}",
         "type": "DEPOSIT",
         "amount": round(amount, 2),
         "balance_after": round(cash, 2),
         "method": method.upper(),
         "status": "SETTLED",
-        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": now_str,
         "description": f"Deposit via {method.upper()} (+${amount:,.2f}) {f'[{note}]' if note else ''}".strip()
-    }
-    tx_list.insert(0, tx_record)
-    
-    state["cash_balance"] = round(cash, 2)
-    state["total_deposited"] = round(total_dep, 2)
-    state["cash_transactions"] = tx_list
-    _save_state(state)
-    return get_paper_account()
+    })
 
-def withdraw_cash(amount: float, method: str = "ACH", note: Optional[str] = None) -> PaperAccountSummary:
-    """Withdraw virtual cash from the trading account back to a linked bank."""
+    update_portfolio(uid, cash, total_dep, total_wth)
+    return get_paper_account(uid)
+
+def withdraw_cash(amount: float, method: str = "ACH", note: Optional[str] = None, user_id: Optional[int] = None) -> PaperAccountSummary:
+    """Withdraw virtual cash from the user's trading account back to a linked bank."""
     if amount <= 0:
         raise ValueError("Withdrawal amount must be strictly greater than $0.")
-        
-    state = _load_state()
-    cash = float(state.get("cash_balance", DEFAULT_CAPITAL))
+
+    uid = _resolve_user_id(user_id)
+    portfolio = get_or_create_portfolio(uid)
+    cash = float(portfolio["cash_balance"])
     if amount > cash:
         raise ValueError(f"Insufficient cash balance for withdrawal. Requested ${amount:,.2f}, available cash is ${cash:,.2f}.")
-        
+
     cash -= amount
-    total_wth = float(state.get("total_withdrawn", 0.0)) + amount
-    
-    tx_list = state.get("cash_transactions", [])
-    tx_record = {
+    total_dep = float(portfolio.get("total_deposited", DEFAULT_CAPITAL))
+    total_wth = float(portfolio.get("total_withdrawn", 0.0)) + amount
+
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    add_cash_transaction(uid, {
         "id": f"tx_wth_{uuid.uuid4().hex[:8]}",
         "type": "WITHDRAWAL",
         "amount": -round(amount, 2),
         "balance_after": round(cash, 2),
         "method": method.upper(),
         "status": "SETTLED",
-        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": now_str,
         "description": f"Withdrawal to {method.upper()} (-${amount:,.2f}) {f'[{note}]' if note else ''}".strip()
-    }
-    tx_list.insert(0, tx_record)
-    
-    state["cash_balance"] = round(cash, 2)
-    state["total_withdrawn"] = round(total_wth, 2)
-    state["cash_transactions"] = tx_list
-    _save_state(state)
-    return get_paper_account()
+    })
 
-def reset_paper_account() -> PaperAccountSummary:
-    """Resets the paper trading account back to $100,000 cash balance."""
-    initial_state = {
-        "cash_balance": DEFAULT_CAPITAL,
-        "initial_balance": DEFAULT_CAPITAL,
-        "positions": {},
-        "trade_history": [],
-        "cash_transactions": _initial_cash_tx(),
-        "total_deposited": DEFAULT_CAPITAL,
-        "total_withdrawn": 0.0
-    }
-    _save_state(initial_state)
-    return get_paper_account()
+    update_portfolio(uid, cash, total_dep, total_wth)
+    return get_paper_account(uid)
+
+def reset_paper_account(user_id: Optional[int] = None) -> PaperAccountSummary:
+    """Resets the paper trading account back to $100,000 cash balance in SQLite."""
+    uid = _resolve_user_id(user_id)
+    reset_user_portfolio_db(uid)
+    return get_paper_account(uid)

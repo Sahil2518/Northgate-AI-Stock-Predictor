@@ -5,6 +5,8 @@ Tests Market Data, Technical Indicators, Sentiment, ML/DL Forecasting, Portfolio
 import pytest
 import numpy as np
 import pandas as pd
+import datetime
+import time
 from fastapi.testclient import TestClient
 from app.main import app
 from app.services.market_data import generate_synthetic_history, fetch_stock_quote, fetch_stock_history
@@ -239,4 +241,51 @@ def test_wallet_deposit_and_withdrawal():
     })
     assert fail_res.status_code == 400
     assert "Insufficient" in fail_res.json()["detail"]
+
+def test_authentication_and_multi_user_isolation():
+    # 1. Test 1-Click Demo Login
+    demo_res = client.post("/api/v1/auth/demo")
+    assert demo_res.status_code == 200
+    demo_data = demo_res.json()
+    assert "access_token" in demo_data
+    assert demo_data["user"]["email"] == "demo@northgate.ai"
+    demo_token = demo_data["access_token"]
+    
+    # 2. Test New User Registration
+    test_email = f"trader_{int(datetime.datetime.now().timestamp())}@northgate.ai"
+    reg_res = client.post("/api/v1/auth/register", json={
+        "email": test_email,
+        "password": "Password123!",
+        "full_name": "Quantitative Intern"
+    })
+    assert reg_res.status_code == 200
+    reg_data = reg_res.json()
+    assert "access_token" in reg_data
+    assert reg_data["user"]["email"] == test_email
+    user_token = reg_data["access_token"]
+    
+    # 3. Test Protected /me Endpoint
+    me_res = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {user_token}"})
+    assert me_res.status_code == 200
+    assert me_res.json()["email"] == test_email
+    
+    # 4. Test Multi-User Portfolio Isolation
+    # Intern deposits $75,000
+    dep_intern = client.post(
+        "/api/v1/paper-trading/wallet/deposit",
+        json={"amount": 75000.0, "method": "ACH", "note": "Intern Allocation"},
+        headers={"Authorization": f"Bearer {user_token}"}
+    )
+    assert dep_intern.status_code == 200
+    assert dep_intern.json()["cash_balance"] == 175000.0
+    
+    # Demo Trader account should NOT be affected
+    demo_acc = client.get(
+        "/api/v1/paper-trading/account",
+        headers={"Authorization": f"Bearer {demo_token}"}
+    )
+    assert demo_acc.status_code == 200
+    # Demo balance is separate from intern's $175,000 balance!
+    assert demo_acc.json()["cash_balance"] != 175000.0
+
 

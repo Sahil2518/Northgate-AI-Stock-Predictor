@@ -12,7 +12,8 @@ import {
   Maximize2, 
   Terminal, 
   Activity,
-  Wallet
+  Wallet,
+  User
 } from 'lucide-react';
 
 const QUICK_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'TSLA', 'GOOGL', 'AMZN', 'META', 'SPY'];
@@ -24,6 +25,8 @@ export default function TerminalTopBar({
   recommendation,
   onRefresh,
   onOpenWallet,
+  onOpenAuth,
+  currentUser,
   cashBalance = 100000,
   isLoading
 }) {
@@ -189,6 +192,22 @@ export default function TerminalTopBar({
 
       {/* Right: Live Market Clock & Actions */}
       <div className="flex items-center space-x-3">
+        {/* User Identity / Session Pill */}
+        <button
+          type="button"
+          onClick={onOpenAuth}
+          title="Account Identity & Session Manager (Switch Account / Log In)"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#0D1424] hover:bg-[#152038] border border-[#232F48] hover:border-sky-500/40 text-xs text-slate-300 hover:text-white transition-all shadow-sm group"
+        >
+          <div className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px] font-bold">
+            {currentUser?.full_name ? currentUser.full_name.charAt(0).toUpperCase() : <User className="w-2.5 h-2.5" />}
+          </div>
+          <span className="font-medium text-[11px] max-w-[100px] truncate hidden md:inline">
+            {currentUser?.full_name ? currentUser.full_name.split(' ')[0] : 'Demo Trader'}
+          </span>
+          <span className={`w-1.5 h-1.5 rounded-full ${currentUser?.role === 'demo' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+        </button>
+
         {/* Wallet / Cashier Trigger Pill */}
         <button
           type="button"

@@ -20,3 +20,5 @@ Thumbs.db
 
 # Data & Persistence
 backend/app/data/*.json
+backend/app/data/*.db
+*.db

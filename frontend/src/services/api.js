@@ -21,7 +21,37 @@ const apiClient = axios.create({
   },
 });
 
+// Automatically inject JWT Bearer token into outgoing requests
+apiClient.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('northgate_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
 export const api = {
+  // User Authentication & Multi-Tenant Sessions
+  login: (data) => apiClient.post('/auth/login', data).then(res => {
+    if (res.data?.access_token) localStorage.setItem('northgate_token', res.data.access_token);
+    return res.data;
+  }),
+  register: (data) => apiClient.post('/auth/register', data).then(res => {
+    if (res.data?.access_token) localStorage.setItem('northgate_token', res.data.access_token);
+    return res.data;
+  }),
+  loginDemo: () => apiClient.post('/auth/demo').then(res => {
+    if (res.data?.access_token) localStorage.setItem('northgate_token', res.data.access_token);
+    return res.data;
+  }),
+  getMe: () => apiClient.get('/auth/me').then(res => res.data),
+  logout: () => {
+    if (typeof window !== 'undefined') localStorage.removeItem('northgate_token');
+  },
+  getToken: () => typeof window !== 'undefined' ? localStorage.getItem('northgate_token') : null,
+
   // Real-time market quotes and historical technical bars
   getQuote: (ticker) => apiClient.get(`/stocks/quote/${ticker}`).then(res => res.data),
   getHistory: (ticker, period = '1y') => apiClient.get(`/stocks/history/${ticker}?period=${period}`).then(res => res.data),

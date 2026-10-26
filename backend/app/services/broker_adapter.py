@@ -18,17 +18,17 @@ from app.services.paper_trading import (
 class BaseBrokerAdapter:
     def get_status(self) -> BrokerStatusResponse:
         raise NotImplementedError
-    def place_order(self, request: PaperOrderRequest) -> PaperAccountSummary:
+    def place_order(self, request: PaperOrderRequest, user_id: Optional[int] = None) -> PaperAccountSummary:
         raise NotImplementedError
-    def get_portfolio(self) -> PaperAccountSummary:
+    def get_portfolio(self, user_id: Optional[int] = None) -> PaperAccountSummary:
         raise NotImplementedError
-    def deposit(self, request: WalletTransactionRequest) -> PaperAccountSummary:
+    def deposit(self, request: WalletTransactionRequest, user_id: Optional[int] = None) -> PaperAccountSummary:
         raise NotImplementedError
-    def withdraw(self, request: WalletTransactionRequest) -> PaperAccountSummary:
+    def withdraw(self, request: WalletTransactionRequest, user_id: Optional[int] = None) -> PaperAccountSummary:
         raise NotImplementedError
 
 class LocalPaperBrokerAdapter(BaseBrokerAdapter):
-    """Zero-dependency local paper trading simulation engine."""
+    """Zero-dependency local paper trading simulation engine with SQLite multi-tenant backing."""
     def get_status(self) -> BrokerStatusResponse:
         return BrokerStatusResponse(
             active_broker="Northgate Virtual Brokerage (Local Simulation)",
@@ -40,24 +40,24 @@ class LocalPaperBrokerAdapter(BaseBrokerAdapter):
                 "Limit Orders",
                 "Automated 2.0x ATR Stop-Loss Bracket",
                 "Target Price Take-Profit Triggers",
-                "Persistent P&L Ledger",
+                "Persistent SQLite P&L Ledger",
                 "Friction & Slippage Modeling (5 bps)",
                 "Instant Simulated ACH/Wire Cashier",
-                "Cash Flow Transaction Ledger"
+                "Multi-Tenant User Account Isolation"
             ]
         )
         
-    def place_order(self, request: PaperOrderRequest) -> PaperAccountSummary:
-        return execute_paper_order(request)
+    def place_order(self, request: PaperOrderRequest, user_id: Optional[int] = None) -> PaperAccountSummary:
+        return execute_paper_order(request, user_id=user_id)
         
-    def get_portfolio(self) -> PaperAccountSummary:
-        return get_paper_account()
+    def get_portfolio(self, user_id: Optional[int] = None) -> PaperAccountSummary:
+        return get_paper_account(user_id=user_id)
 
-    def deposit(self, request: WalletTransactionRequest) -> PaperAccountSummary:
-        return deposit_cash(amount=request.amount, method=request.method, note=request.note)
+    def deposit(self, request: WalletTransactionRequest, user_id: Optional[int] = None) -> PaperAccountSummary:
+        return deposit_cash(amount=request.amount, method=request.method, note=request.note, user_id=user_id)
 
-    def withdraw(self, request: WalletTransactionRequest) -> PaperAccountSummary:
-        return withdraw_cash(amount=request.amount, method=request.method, note=request.note)
+    def withdraw(self, request: WalletTransactionRequest, user_id: Optional[int] = None) -> PaperAccountSummary:
+        return withdraw_cash(amount=request.amount, method=request.method, note=request.note, user_id=user_id)
 
 class AlpacaBrokerAdapter(BaseBrokerAdapter):
     """Alpaca Markets institutional paper & live trading connector."""
@@ -83,17 +83,17 @@ class AlpacaBrokerAdapter(BaseBrokerAdapter):
             ]
         )
         
-    def place_order(self, request: PaperOrderRequest) -> PaperAccountSummary:
-        return execute_paper_order(request)
+    def place_order(self, request: PaperOrderRequest, user_id: Optional[int] = None) -> PaperAccountSummary:
+        return execute_paper_order(request, user_id=user_id)
         
-    def get_portfolio(self) -> PaperAccountSummary:
-        return get_paper_account()
+    def get_portfolio(self, user_id: Optional[int] = None) -> PaperAccountSummary:
+        return get_paper_account(user_id=user_id)
 
-    def deposit(self, request: WalletTransactionRequest) -> PaperAccountSummary:
-        return deposit_cash(amount=request.amount, method=request.method, note=request.note)
+    def deposit(self, request: WalletTransactionRequest, user_id: Optional[int] = None) -> PaperAccountSummary:
+        return deposit_cash(amount=request.amount, method=request.method, note=request.note, user_id=user_id)
 
-    def withdraw(self, request: WalletTransactionRequest) -> PaperAccountSummary:
-        return withdraw_cash(amount=request.amount, method=request.method, note=request.note)
+    def withdraw(self, request: WalletTransactionRequest, user_id: Optional[int] = None) -> PaperAccountSummary:
+        return withdraw_cash(amount=request.amount, method=request.method, note=request.note, user_id=user_id)
 
 def get_broker_adapter() -> BaseBrokerAdapter:
     """Factory function returning active broker adapter based on environment configuration."""
