@@ -30,9 +30,10 @@ export default function TechnicalView({
 
   if (isLoading || !technicalData) {
     return (
-      <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-8 h-[400px] flex flex-col items-center justify-center space-y-4">
-        <Activity className="w-12 h-12 text-cyan-400 animate-pulse" />
-        <p className="text-slate-300 font-medium text-sm">Computing algorithmic technical indicators...</p>
+      <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-8 h-[380px] flex flex-col items-center justify-center space-y-3">
+        <Activity className="w-8 h-8 text-sky-400 animate-pulse" />
+        <p className="text-slate-200 font-medium text-xs">Computing technical oscillators & momentum vectors...</p>
+        <span className="text-[11px] text-slate-500 font-mono">Evaluating 14-day RSI, MACD signal convergence, and Bollinger volatility bands</span>
       </div>
     );
   }
@@ -67,134 +68,129 @@ export default function TechnicalView({
     macd: p.macd
   }));
 
-  const minVal = chartData.length > 0 ? Math.min(...chartData.map(d => d.bbLower || d.close)) * 0.97 : 0;
-  const maxVal = chartData.length > 0 ? Math.max(...chartData.map(d => d.bbUpper || d.close)) * 1.03 : 100;
+  const minVal = chartData.length > 0 ? Math.min(...chartData.map(d => d.bbLower || d.close)) * 0.98 : 0;
+  const maxVal = chartData.length > 0 ? Math.max(...chartData.map(d => d.bbUpper || d.close)) * 1.02 : 100;
 
   return (
     <div className="space-y-6">
       
       {/* Indicator Metric Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         
         {/* RSI */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">RSI (14-Day)</span>
-            <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${
+        <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-4 space-y-2">
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-sans">RSI (14-Day)</span>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
               rsi_14 >= 70 
                 ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30' 
                 : rsi_14 <= 30 
                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' 
-                : 'bg-slate-800 text-cyan-400'
+                : 'bg-[#182137] text-sky-400'
             }`}>
               {rsi_condition}
             </span>
           </div>
-          <div className="text-3xl font-black font-mono text-white mb-2">{rsi_14}</div>
-          <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800 relative">
+          <div className="text-2xl font-black font-mono text-white tabular-nums">{rsi_14}</div>
+          <div className="w-full bg-[#080B11] h-1.5 rounded-full overflow-hidden border border-[#1E273B]">
             <div 
               className={`h-full rounded-full ${
-                rsi_14 >= 70 ? 'bg-rose-500' : rsi_14 <= 30 ? 'bg-emerald-500' : 'bg-cyan-500'
+                rsi_14 >= 70 ? 'bg-rose-500' : rsi_14 <= 30 ? 'bg-emerald-500' : 'bg-sky-400'
               }`} 
               style={{ width: `${Math.min(rsi_14, 100)}%` }} 
             />
           </div>
-          <span className="text-[10px] text-slate-500 mt-2 block font-medium">30 Oversold · 70 Overbought</span>
+          <div className="flex justify-between text-[10px] font-mono text-slate-500">
+            <span>Oversold: 30</span>
+            <span>Overbought: 70</span>
+          </div>
         </div>
 
         {/* MACD */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">MACD Signal</span>
-            <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${
-              macd > macd_signal 
-                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' 
+        <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-4 space-y-2">
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-sans">MACD (12, 26, 9)</span>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+              macd_crossover.includes('Bullish')
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                 : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
             }`}>
               {macd_crossover}
             </span>
           </div>
-          <div className="text-3xl font-black font-mono text-white mb-2">{macd}</div>
-          <div className="text-xs text-slate-400 flex justify-between font-mono">
-            <span>Signal Line:</span>
-            <span className="text-slate-200">{macd_signal}</span>
+          <div className="text-2xl font-black font-mono text-white tabular-nums">
+            {macd > 0 ? '+' : ''}{macd.toFixed(2)}
           </div>
-          <span className="text-[10px] text-slate-500 mt-2 block font-medium">12/26 EMA Divergence</span>
-        </div>
-
-        {/* Moving Average Structure */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">MA Structure</span>
-            <span className="text-xs px-2 py-0.5 rounded-md font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-              {sma_trend}
+          <div className="flex justify-between text-[11px] font-mono text-slate-400">
+            <span>Signal: {macd_signal.toFixed(2)}</span>
+            <span className={macd - macd_signal >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+              Hist: {(macd - macd_signal).toFixed(2)}
             </span>
           </div>
-          <div className="text-3xl font-black font-mono text-white mb-2">${current_price.toFixed(2)}</div>
-          <div className="text-xs text-slate-400 space-y-0.5 font-mono">
-            <div className="flex justify-between">
-              <span>SMA 50:</span>
-              <span className="text-slate-200">${sma_50}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>SMA 200:</span>
-              <span className="text-slate-200">${sma_200}</span>
-            </div>
-          </div>
+          <span className="text-[10px] text-slate-500 block">Momentum divergence vector</span>
         </div>
 
-        {/* Bollinger Bands & Volatility */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Bollinger Bands</span>
-            <span className="text-xs px-2 py-0.5 rounded-md font-bold bg-slate-800 text-slate-300">
+        {/* Bollinger Bands */}
+        <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-4 space-y-2">
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-sans">Bollinger Bands</span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#182137] text-sky-400">
               {bb_position}
             </span>
           </div>
-          <div className="text-2xl font-black font-mono text-white mb-2">
-            ${bb_lower.toFixed(0)} - ${bb_upper.toFixed(0)}
+          <div className="text-2xl font-black font-mono text-white tabular-nums">${current_price.toFixed(2)}</div>
+          <div className="flex justify-between text-[11px] font-mono text-slate-400">
+            <span>Upper: ${bb_upper.toFixed(1)}</span>
+            <span>Lower: ${bb_lower.toFixed(1)}</span>
           </div>
-          <div className="text-xs text-slate-400 space-y-0.5 font-mono">
-            <div className="flex justify-between">
-              <span>ATR (14D):</span>
-              <span className="text-slate-200">${atr_14}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Ann. Vol:</span>
-              <span className="text-slate-200">{(volatility_annualized * 100).toFixed(1)}%</span>
-            </div>
+          <span className="text-[10px] text-slate-500 block">2.0σ Standard Deviation Band</span>
+        </div>
+
+        {/* Volatility & ATR */}
+        <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-4 space-y-2">
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-sans">ATR (14-Day)</span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#182137] text-amber-400">
+              {(volatility_annualized * 100).toFixed(1)}% Annual Vol
+            </span>
           </div>
+          <div className="text-2xl font-black font-mono text-white tabular-nums">${atr_14.toFixed(2)}</div>
+          <div className="flex justify-between text-[11px] font-mono text-slate-400">
+            <span>Trend: {sma_trend}</span>
+            <span>SMA200: ${sma_200.toFixed(1)}</span>
+          </div>
+          <span className="text-[10px] text-slate-500 block">Average True Range risk barrier</span>
         </div>
 
       </div>
 
-      {/* Technical Chart */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-xl">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+      {/* Interactive Technical History Chart */}
+      <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-5 shadow-xl shadow-black/20 space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[#1E273B]">
           <div>
-            <h3 className="font-extrabold text-white text-lg flex items-center gap-2">
-              <Activity className="w-4 h-4 text-cyan-400" />
-              Technical Price Action & Bands (90-Day Lookback)
-            </h3>
-            <p className="text-xs text-slate-400">
-              Interactive visualization of Moving Averages and Bollinger Volatility Envelopes for {ticker}.
-            </p>
+            <h4 className="font-bold text-white text-xs uppercase tracking-wider font-sans">
+              90-Day Technical Historical Indicators ({ticker})
+            </h4>
+            <span className="text-[11px] text-slate-400 font-sans">Daily Close with Moving Averages & Volatility Envelope</span>
           </div>
 
-          {/* Toggle Switches */}
-          <div className="flex items-center space-x-3 text-xs">
+          <div className="flex items-center space-x-2 text-xs">
             <button
               onClick={() => setOverlaySMA(!overlaySMA)}
-              className={`px-3 py-1 rounded-lg border font-medium transition-all ${
-                overlaySMA ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50' : 'bg-slate-950 text-slate-500 border-slate-800'
+              className={`px-2.5 py-1 rounded text-[11px] font-mono transition-all ${
+                overlaySMA 
+                  ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40' 
+                  : 'bg-[#080B11] text-slate-500 border border-[#1E273B]'
               }`}
             >
               SMA 20/50
             </button>
             <button
               onClick={() => setOverlayBB(!overlayBB)}
-              className={`px-3 py-1 rounded-lg border font-medium transition-all ${
-                overlayBB ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/50' : 'bg-slate-950 text-slate-500 border-slate-800'
+              className={`px-2.5 py-1 rounded text-[11px] font-mono transition-all ${
+                overlayBB 
+                  ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40' 
+                  : 'bg-[#080B11] text-slate-500 border border-[#1E273B]'
               }`}
             >
               Bollinger Bands
@@ -202,75 +198,46 @@ export default function TechnicalView({
           </div>
         </div>
 
-        <div className="h-[360px] w-full">
+        <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-              <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
+            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1E273B" />
+              <XAxis dataKey="date" stroke="#64748b" fontSize={10} fontFamily="JetBrains Mono" />
               <YAxis 
                 domain={[minVal, maxVal]} 
                 stroke="#64748b" 
-                tick={{ fontSize: 11, fontFamily: 'monospace' }} 
-                tickFormatter={(val) => `$${val.toFixed(0)}`}
+                fontSize={10} 
+                tickFormatter={(v) => `$${v.toFixed(0)}`}
+                orientation="right"
+                fontFamily="JetBrains Mono"
               />
               <Tooltip 
-                contentStyle={{ backgroundColor: '#020617', borderColor: '#334155', borderRadius: '12px', fontSize: '11px' }}
+                contentStyle={{ 
+                  backgroundColor: '#080B11', 
+                  borderColor: '#1E273B', 
+                  borderRadius: '8px', 
+                  fontSize: '11px',
+                  fontFamily: 'JetBrains Mono' 
+                }} 
               />
-              <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: '12px', fontSize: '11px' }} />
+              <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
 
-              {/* Close Price */}
-              <Line 
-                type="monotone" 
-                dataKey="close" 
-                stroke="#f8fafc" 
-                strokeWidth={2.5} 
-                dot={false} 
-                name="Close Price" 
-              />
+              {/* Price Line */}
+              <Line type="monotone" dataKey="close" stroke="#ffffff" strokeWidth={2} dot={false} name="Close Price" />
 
               {/* Moving Averages */}
               {overlaySMA && (
                 <>
-                  <Line 
-                    type="monotone" 
-                    dataKey="sma20" 
-                    stroke="#38bdf8" 
-                    strokeWidth={1.5} 
-                    dot={false} 
-                    name="SMA 20" 
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="sma50" 
-                    stroke="#eab308" 
-                    strokeWidth={1.5} 
-                    dot={false} 
-                    name="SMA 50" 
-                  />
+                  <Line type="monotone" dataKey="sma20" stroke="#38bdf8" strokeWidth={1.5} dot={false} name="SMA 20" />
+                  <Line type="monotone" dataKey="sma50" stroke="#f59e0b" strokeWidth={1.5} dot={false} name="SMA 50" />
                 </>
               )}
 
               {/* Bollinger Bands */}
               {overlayBB && (
                 <>
-                  <Line 
-                    type="monotone" 
-                    dataKey="bbUpper" 
-                    stroke="#a855f7" 
-                    strokeWidth={1} 
-                    strokeDasharray="3 3" 
-                    dot={false} 
-                    name="BB Upper (2σ)" 
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="bbLower" 
-                    stroke="#a855f7" 
-                    strokeWidth={1} 
-                    strokeDasharray="3 3" 
-                    dot={false} 
-                    name="BB Lower (2σ)" 
-                  />
+                  <Line type="monotone" dataKey="bbUpper" stroke="#818cf8" strokeWidth={1} strokeDasharray="3 3" dot={false} name="Upper BB" />
+                  <Line type="monotone" dataKey="bbLower" stroke="#818cf8" strokeWidth={1} strokeDasharray="3 3" dot={false} name="Lower BB" />
                 </>
               )}
             </ComposedChart>

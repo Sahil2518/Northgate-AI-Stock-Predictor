@@ -7,18 +7,22 @@ import {
   ShieldAlert, 
   Target, 
   Percent, 
-  Brain,
-  Scale,
-  Briefcase,
-  Zap
+  Brain, 
+  Scale, 
+  Briefcase, 
+  Zap,
+  Activity,
+  Newspaper,
+  Compass,
+  ArrowRight
 } from 'lucide-react';
 
 export default function RecommendationCard({ recommendation, quote, onOpenPaperTrade }) {
   if (!recommendation) {
     return (
-      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 animate-pulse text-center">
-        <div className="h-6 bg-slate-800 rounded w-1/3 mx-auto mb-4" />
-        <div className="h-4 bg-slate-800/60 rounded w-1/2 mx-auto" />
+      <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-8 animate-pulse text-center">
+        <div className="h-5 bg-[#182137] rounded w-1/4 mx-auto mb-3" />
+        <div className="h-4 bg-[#182137]/60 rounded w-1/2 mx-auto" />
       </div>
     );
   }
@@ -40,204 +44,261 @@ export default function RecommendationCard({ recommendation, quote, onOpenPaperT
 
   const currentPrice = quote?.current_price || recommendation.current_price;
 
-  const getRatingStyles = (r) => {
+  // Refined institutional badge styling (no giant cartoonish gradients)
+  const getRatingBadge = (r) => {
     switch (r) {
       case 'STRONG BUY':
         return {
-          bg: 'from-emerald-500/20 to-teal-500/10 border-emerald-500/50 text-emerald-400',
-          badge: 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/30',
-          glow: 'glow-emerald',
-          icon: TrendingUp
+          pill: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+          indicator: 'bg-emerald-400',
+          icon: TrendingUp,
+          text: 'STRONG BUY'
         };
       case 'BUY':
         return {
-          bg: 'from-teal-500/20 to-cyan-500/10 border-teal-500/40 text-teal-300',
-          badge: 'bg-teal-500 text-slate-950 shadow-lg shadow-teal-500/25',
-          glow: 'glow-emerald',
-          icon: TrendingUp
+          pill: 'bg-teal-500/10 text-teal-300 border-teal-500/30',
+          indicator: 'bg-teal-400',
+          icon: TrendingUp,
+          text: 'BUY'
         };
       case 'STRONG SELL':
         return {
-          bg: 'from-rose-500/20 to-red-500/10 border-rose-500/50 text-rose-400',
-          badge: 'bg-rose-500 text-white shadow-lg shadow-rose-500/30',
-          glow: 'glow-rose',
-          icon: TrendingDown
+          pill: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+          indicator: 'bg-rose-400',
+          icon: TrendingDown,
+          text: 'STRONG SELL'
         };
       case 'SELL':
         return {
-          bg: 'from-orange-500/20 to-rose-500/10 border-orange-500/40 text-orange-300',
-          badge: 'bg-orange-500 text-slate-950 shadow-lg shadow-orange-500/25',
-          glow: 'glow-rose',
-          icon: TrendingDown
+          pill: 'bg-orange-500/10 text-orange-300 border-orange-500/30',
+          indicator: 'bg-orange-400',
+          icon: TrendingDown,
+          text: 'SELL'
         };
       default:
         return {
-          bg: 'from-amber-500/20 to-yellow-500/10 border-amber-500/40 text-amber-300',
-          badge: 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25',
-          glow: 'glow-cyan',
-          icon: AlertTriangle
+          pill: 'bg-amber-500/10 text-amber-300 border-amber-500/30',
+          indicator: 'bg-amber-400',
+          icon: AlertTriangle,
+          text: 'HOLD'
         };
     }
   };
 
-  const styles = getRatingStyles(rating);
-  const RatingIcon = styles.icon;
-
-  const getRiskBadge = (risk) => {
-    if (risk === 'Low') return 'bg-emerald-950 text-emerald-400 border-emerald-800';
-    if (risk === 'Moderate') return 'bg-cyan-950 text-cyan-400 border-cyan-800';
-    if (risk === 'High') return 'bg-orange-950 text-orange-400 border-orange-800';
-    return 'bg-rose-950 text-rose-400 border-rose-800';
-  };
+  const badge = getRatingBadge(rating);
+  const RatingIcon = badge.icon;
+  const isPositiveUpside = potential_upside_pct >= 0;
 
   return (
-    <div className="space-y-6">
-      {/* Primary Decision Banner */}
-      <div className={`relative overflow-hidden rounded-3xl border bg-gradient-to-br ${styles.bg} p-6 sm:p-8 backdrop-blur-xl ${styles.glow}`}>
+    <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-6 shadow-xl shadow-black/20 space-y-6">
+      
+      {/* Top Advisory Banner */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-[#1E273B]">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className={`px-3 py-1 rounded-md text-xs font-mono font-bold tracking-wider uppercase border flex items-center gap-1.5 ${badge.pill}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${badge.indicator}`} />
+              {badge.text}
+            </span>
+
+            <span className="text-xs px-2.5 py-0.5 rounded-md font-mono bg-[#080B11] text-slate-300 border border-[#1E273B]">
+              Conviction: <strong className="text-white">{confidence_score}%</strong>
+            </span>
+
+            <span className="text-xs px-2.5 py-0.5 rounded-md font-mono bg-[#080B11] text-slate-300 border border-[#1E273B]">
+              Risk: <strong className={risk_level === 'High' ? 'text-rose-400' : 'text-slate-200'}>{risk_level}</strong>
+            </span>
+          </div>
+
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight pt-1">
+            Quantitative Investment Thesis & Signal Consensus
+          </h2>
+
+          <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-3xl">
+            {summary_analysis}
+          </p>
+        </div>
+
+        {/* 1-Click Action to Paper Broker */}
+        {onOpenPaperTrade && (
+          <div className="shrink-0">
+            <button
+              onClick={() => onOpenPaperTrade(recommendation)}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-lg text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 font-sans shadow-md hover:shadow-sky-500/20 transition-all flex items-center justify-center gap-2"
+            >
+              <Briefcase className="w-4 h-4" />
+              <span>Route Order to Paper Desk</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Target Price & Risk-to-Reward Execution Matrix */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         
-        {/* Background accent icon */}
-        <div className="absolute right-4 -bottom-6 opacity-5 pointer-events-none select-none">
-          <RatingIcon className="w-64 h-64 text-white" />
+        {/* Current Quote */}
+        <div className="bg-[#080B11] border border-[#1E273B] rounded-lg p-3">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">
+            Reference Price
+          </span>
+          <span className="text-base sm:text-lg font-black text-white font-mono tabular-nums">
+            ${currentPrice.toFixed(2)}
+          </span>
+          <span className="text-[10px] text-slate-500 block">Spot Market</span>
         </div>
 
-        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+        {/* 7-Day Target */}
+        <div className="bg-[#080B11] border border-[#1E273B] rounded-lg p-3">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">
+            7-Day Target
+          </span>
+          <span className="text-base sm:text-lg font-black text-sky-400 font-mono tabular-nums">
+            ${target_price_7d.toFixed(2)}
+          </span>
+          <span className="text-[10px] text-slate-500 block">Short Horizon</span>
+        </div>
+
+        {/* 30-Day Target */}
+        <div className="bg-[#080B11] border border-[#1E273B] rounded-lg p-3">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">
+            30-Day Target
+          </span>
+          <span className="text-base sm:text-lg font-black text-emerald-400 font-mono tabular-nums">
+            ${target_price_30d.toFixed(2)}
+          </span>
+          <span className="text-[10px] text-slate-500 block">Primary Target</span>
+        </div>
+
+        {/* Forecasted Upside */}
+        <div className="bg-[#080B11] border border-[#1E273B] rounded-lg p-3">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">
+            Forecast Return
+          </span>
+          <span className={`text-base sm:text-lg font-black font-mono tabular-nums ${
+            isPositiveUpside ? 'text-emerald-400' : 'text-rose-400'
+          }`}>
+            {isPositiveUpside ? '+' : ''}{potential_upside_pct.toFixed(2)}%
+          </span>
+          <span className="text-[10px] text-slate-500 block">Expected Return</span>
+        </div>
+
+        {/* Stop Loss Floor */}
+        <div className="bg-[#080B11] border border-[#1E273B] rounded-lg p-3">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">
+            Stop-Loss Floor
+          </span>
+          <span className="text-base sm:text-lg font-black text-rose-400 font-mono tabular-nums">
+            ${stop_loss_price.toFixed(2)}
+          </span>
+          <span className="text-[10px] text-slate-500 block">2.0x ATR Buffer</span>
+        </div>
+
+        {/* Risk / Reward Ratio */}
+        <div className="bg-[#080B11] border border-[#1E273B] rounded-lg p-3">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">
+            Risk / Reward
+          </span>
+          <span className="text-base sm:text-lg font-black text-sky-400 font-mono tabular-nums">
+            {risk_reward_ratio.toFixed(2)} : 1
+          </span>
+          <span className="text-[10px] text-slate-500 block">Upside vs Risk</span>
+        </div>
+
+      </div>
+
+      {/* 4-Pillar Quantitative Scorecard Breakdown */}
+      <div className="space-y-3 pt-2">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+          <span>Consensus Signal Decomposition</span>
+          <span className="text-[11px] text-slate-500 font-mono font-normal">Weights: AI 35% · News 25% · Tech 25% · Risk 15%</span>
+        </h4>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           
-          {/* Rating Title & Confidence */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <span className={`px-4 py-1.5 rounded-full font-black text-sm tracking-wider uppercase ${styles.badge}`}>
-                {rating}
+          {/* Pillar 1: AI Return */}
+          <div className="bg-[#080B11] border border-[#1E273B] rounded-lg p-3.5 space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400 flex items-center gap-1.5 font-medium">
+                <Brain className="w-3.5 h-3.5 text-sky-400" />
+                AI Model Forecast
               </span>
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getRiskBadge(risk_level)}`}>
-                Risk Level: {risk_level}
-              </span>
-            </div>
-
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight flex items-center gap-2">
-              <span>{recommendation.ticker}</span>
-              <span className="text-slate-400 font-normal text-xl sm:text-2xl">· {recommendation.company_name}</span>
-            </h2>
-
-            <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
-              {summary_analysis}
-            </p>
-
-            {onOpenPaperTrade && (
-              <div className="pt-1">
-                <button
-                  onClick={() => onOpenPaperTrade(recommendation)}
-                  className="px-4 py-1.5 rounded-xl text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 transition-all inline-flex items-center gap-1.5 shadow-md shadow-cyan-500/10"
-                >
-                  <Briefcase className="w-3.5 h-3.5 text-cyan-400" />
-                  Execute Simulated Trade ({rating})
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Quick Metrics Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full lg:w-auto">
-            
-            {/* Current Price */}
-            <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 text-center">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Current Price</span>
-              <span className="text-xl sm:text-2xl font-black text-white font-mono">${currentPrice.toFixed(2)}</span>
-            </div>
-
-            {/* 30D Target */}
-            <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 text-center">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">30D Target</span>
-              <span className="text-xl sm:text-2xl font-black text-cyan-400 font-mono">${target_price_30d.toFixed(2)}</span>
-              <span className={`text-[11px] font-bold block ${potential_upside_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {potential_upside_pct >= 0 ? '+' : ''}{potential_upside_pct.toFixed(1)}%
+              <span className="font-mono text-xs font-bold text-slate-200">
+                {signals?.ai_return ? `${signals.ai_return > 0 ? '+' : ''}${signals.ai_return.toFixed(1)}%` : '—'}
               </span>
             </div>
-
-            {/* Suggested Stop Loss */}
-            <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 text-center">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Stop Loss</span>
-              <span className="text-xl sm:text-2xl font-black text-rose-400 font-mono">${stop_loss_price.toFixed(2)}</span>
-              <span className="text-[11px] text-slate-500 font-semibold block">2x ATR Floor</span>
-            </div>
-
-            {/* AI Confidence */}
-            <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 text-center">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">AI Confidence</span>
-              <span className="text-xl sm:text-2xl font-black text-emerald-400 font-mono">{confidence_score}%</span>
-              <span className="text-[11px] text-slate-400 font-semibold block">Consensus Score</span>
-            </div>
-
-          </div>
-        </div>
-
-        {/* AI Investment Thesis */}
-        <div className="mt-6 pt-5 border-t border-slate-800/70">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shrink-0 mt-0.5">
-              <Brain className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-cyan-400 block mb-1">
-                Autonomous Synthesis & Investment Thesis
-              </span>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-sans">
-                {ai_thesis}
-              </p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Multi-Factor Signal Breakdown Cards */}
-      <div>
-        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
-          <Scale className="w-4 h-4 text-cyan-400" />
-          Multi-Factor Decision Architecture
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {signals.map((factor, idx) => {
-            const isPos = factor.score > 0;
-            const isNeg = factor.score < 0;
-            return (
+            <div className="w-full bg-[#182137] h-1.5 rounded-full overflow-hidden">
               <div 
-                key={idx}
-                className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition-all flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      {factor.category}
-                    </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${
-                      factor.signal.includes('Buy') 
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                        : factor.signal.includes('Sell')
-                        ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                        : 'bg-slate-800 text-slate-300'
-                    }`}>
-                      {factor.signal}
-                    </span>
-                  </div>
+                className="bg-sky-400 h-full rounded-full" 
+                style={{ width: `${Math.min(100, Math.max(10, (signals?.ai_return || 0) * 5 + 50))}%` }} 
+              />
+            </div>
+            <span className="text-[10px] text-slate-500 block">PyTorch LSTM + XGBoost Ensemble</span>
+          </div>
 
-                  <h4 className="font-bold text-slate-100 text-sm mb-2">{factor.factor_name}</h4>
-                  <p className="text-xs text-slate-400 leading-relaxed mb-4">{factor.explanation}</p>
-                </div>
+          {/* Pillar 2: News Sentiment */}
+          <div className="bg-[#080B11] border border-[#1E273B] rounded-lg p-3.5 space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400 flex items-center gap-1.5 font-medium">
+                <Newspaper className="w-3.5 h-3.5 text-emerald-400" />
+                News Sentiment
+              </span>
+              <span className="font-mono text-xs font-bold text-slate-200">
+                {signals?.sentiment_score ? `${signals.sentiment_score > 0 ? '+' : ''}${signals.sentiment_score.toFixed(2)}` : '0.00'}
+              </span>
+            </div>
+            <div className="w-full bg-[#182137] h-1.5 rounded-full overflow-hidden">
+              <div 
+                className="bg-emerald-400 h-full rounded-full" 
+                style={{ width: `${Math.min(100, Math.max(10, ((signals?.sentiment_score || 0) + 1) * 50))}%` }} 
+              />
+            </div>
+            <span className="text-[10px] text-slate-500 block">VADER Polarity & Catalyst Flow</span>
+          </div>
 
-                <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                  <span className="text-slate-500">Factor Weight: {(factor.weight * 100).toFixed(0)}%</span>
-                  <span className={`font-mono font-bold ${
-                    isPos ? 'text-emerald-400' : isNeg ? 'text-rose-400' : 'text-slate-400'
-                  }`}>
-                    {factor.score > 0 ? '+' : ''}{factor.score.toFixed(0)} / 100
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+          {/* Pillar 3: Technical Oscillators */}
+          <div className="bg-[#080B11] border border-[#1E273B] rounded-lg p-3.5 space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400 flex items-center gap-1.5 font-medium">
+                <Activity className="w-3.5 h-3.5 text-indigo-400" />
+                Technical Trend
+              </span>
+              <span className="font-mono text-xs font-bold text-slate-200">
+                {signals?.technical_score ? `${signals.technical_score.toFixed(0)}/100` : '—'}
+              </span>
+            </div>
+            <div className="w-full bg-[#182137] h-1.5 rounded-full overflow-hidden">
+              <div 
+                className="bg-indigo-400 h-full rounded-full" 
+                style={{ width: `${Math.min(100, Math.max(10, signals?.technical_score || 50))}%` }} 
+              />
+            </div>
+            <span className="text-[10px] text-slate-500 block">RSI, MACD & Moving Averages</span>
+          </div>
+
+          {/* Pillar 4: Risk & Volatility */}
+          <div className="bg-[#080B11] border border-[#1E273B] rounded-lg p-3.5 space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400 flex items-center gap-1.5 font-medium">
+                <Scale className="w-3.5 h-3.5 text-amber-400" />
+                Risk Profile
+              </span>
+              <span className="font-mono text-xs font-bold text-slate-200">
+                {risk_level} Risk
+              </span>
+            </div>
+            <div className="w-full bg-[#182137] h-1.5 rounded-full overflow-hidden">
+              <div 
+                className="bg-amber-400 h-full rounded-full" 
+                style={{ width: risk_level === 'Low' ? '30%' : risk_level === 'Moderate' ? '60%' : '85%' }} 
+              />
+            </div>
+            <span className="text-[10px] text-slate-500 block">ATR Volatility & Drawdown Tail</span>
+          </div>
+
         </div>
       </div>
+
     </div>
   );
 }

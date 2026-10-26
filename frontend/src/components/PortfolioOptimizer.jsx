@@ -21,7 +21,8 @@ import {
   Play, 
   Layers, 
   CheckCircle2,
-  Award
+  Award,
+  Activity
 } from 'lucide-react';
 import StressTestCard from './StressTestCard';
 
@@ -77,19 +78,19 @@ export default function PortfolioOptimizer({
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-slate-950/95 border border-slate-700 p-3 rounded-xl shadow-2xl text-xs space-y-1">
-          <div className="font-bold text-slate-200">Simulated Portfolio</div>
-          <div className="flex justify-between gap-4 text-cyan-400">
-            <span>Expected Return:</span>
-            <span className="font-mono font-bold">{data.return_rate}%</span>
+        <div className="bg-[#080B11]/95 border border-[#1E273B] p-3 rounded-lg shadow-2xl text-xs space-y-1 font-mono">
+          <div className="font-bold text-slate-200 font-sans">Simulated Allocation Vector</div>
+          <div className="flex justify-between gap-4 text-sky-400">
+            <span>Exp. Return:</span>
+            <span className="font-bold tabular-nums">+{data.return_rate}%</span>
           </div>
           <div className="flex justify-between gap-4 text-slate-300">
-            <span>Volatility (Risk):</span>
-            <span className="font-mono">{data.volatility}%</span>
+            <span>Volatility:</span>
+            <span className="tabular-nums">{data.volatility}%</span>
           </div>
           <div className="flex justify-between gap-4 text-emerald-400">
             <span>Sharpe Ratio:</span>
-            <span className="font-mono font-bold">{data.sharpe}</span>
+            <span className="font-bold tabular-nums">{data.sharpe}</span>
           </div>
         </div>
       );
@@ -101,49 +102,49 @@ export default function PortfolioOptimizer({
     <div className="space-y-6">
       
       {/* Control Configuration Panel */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-xl">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-6">
+      <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-6 shadow-xl shadow-black/20 space-y-5">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-4 border-b border-[#1E273B]">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                <PieChart className="w-4 h-4" />
-              </span>
-              <h3 className="font-extrabold text-white text-lg">Modern Portfolio Theory Optimizer</h3>
+            <div className="flex items-center gap-2">
+              <PieChart className="w-4 h-4 text-sky-400" />
+              <h3 className="font-bold text-white text-base font-sans">
+                Modern Portfolio Theory Optimizer (Markowitz Framework)
+              </h3>
             </div>
-            <p className="text-xs text-slate-400">
-              Mean-variance optimization generating the Markowitz Efficient Frontier, Max Sharpe Tangency portfolio, and downside VaR metrics.
+            <p className="text-xs text-slate-400 font-sans mt-0.5">
+              SciPy quadratic solver calculating the Efficient Frontier, Max Sharpe Tangency vector, and downside CVaR
             </p>
           </div>
 
           <button
             onClick={handleSubmit}
             disabled={isLoading}
-            className="flex items-center space-x-2 px-6 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-lg shadow-cyan-500/25 hover:from-cyan-400 hover:to-indigo-500 transition-all disabled:opacity-50"
+            className="flex items-center space-x-2 px-5 py-2 rounded-lg font-semibold text-xs bg-sky-500 hover:bg-sky-400 text-slate-950 font-sans shadow-md hover:shadow-sky-500/20 transition-all disabled:opacity-50"
           >
-            <Play className="w-4 h-4 fill-white" />
-            <span>{isLoading ? 'Optimizing...' : 'Calculate Efficient Frontier'}</span>
+            <Play className="w-3.5 h-3.5 fill-slate-950" />
+            <span>{isLoading ? 'Computing Frontier...' : 'Run Portfolio Optimization'}</span>
           </button>
         </div>
 
-        {/* Inputs */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2 border-t border-slate-800/80">
+        {/* Inputs Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
           
           {/* Asset Universe Selector */}
           <div className="md:col-span-2 space-y-2">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-              Asset Universe (Min 2 stocks):
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">
+              Selected Asset Universe (Minimum 2 Assets):
             </span>
-            <div className="flex flex-wrap gap-2 items-center">
+            <div className="flex flex-wrap gap-1.5 items-center">
               {selectedTickers.map(t => (
                 <span
                   key={t}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-slate-800 text-cyan-400 border border-slate-700"
+                  className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-[#080B11] text-sky-300 border border-[#1E273B]"
                 >
                   <span>{t}</span>
                   {selectedTickers.length > 2 && (
                     <button 
                       onClick={() => handleRemoveTicker(t)}
-                      className="text-slate-500 hover:text-rose-400"
+                      className="text-slate-500 hover:text-rose-400 ml-1"
                     >
                       ×
                     </button>
@@ -157,22 +158,22 @@ export default function PortfolioOptimizer({
               >
                 <input
                   type="text"
-                  placeholder="+ Add symbol..."
+                  placeholder="+ Add ticker..."
                   value={newTickerInput}
                   onChange={(e) => setNewTickerInput(e.target.value)}
-                  className="px-3 py-1 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500 w-28 uppercase"
+                  className="px-2.5 py-1 bg-[#080B11] border border-[#1E273B] rounded-md text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-sky-500 w-24 uppercase"
                 />
               </form>
             </div>
 
-            {/* Quick Suggestions */}
-            <div className="flex items-center space-x-1.5 pt-1 text-[11px] text-slate-500">
-              <span>Suggestions:</span>
-              {CANDIDATE_TICKERS.filter(t => !selectedTickers.includes(t)).slice(0, 4).map(t => (
+            {/* Quick Universe Suggestions */}
+            <div className="flex items-center space-x-1.5 text-[10px] text-slate-500 font-mono pt-0.5">
+              <span>Quick Add:</span>
+              {CANDIDATE_TICKERS.filter(t => !selectedTickers.includes(t)).slice(0, 5).map(t => (
                 <button
                   key={t}
                   onClick={() => handleAddTicker(t)}
-                  className="hover:text-cyan-400 font-mono"
+                  className="hover:text-sky-400 font-semibold"
                 >
                   +{t}
                 </button>
@@ -180,11 +181,11 @@ export default function PortfolioOptimizer({
             </div>
           </div>
 
-          {/* Capital & Risk Free Rate */}
+          {/* Capital Allocation & Risk-Free Rate */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                Capital ($)
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1 font-sans">
+                Portfolio Capital ($)
               </span>
               <div className="relative">
                 <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
@@ -192,21 +193,21 @@ export default function PortfolioOptimizer({
                   type="number"
                   value={investmentAmount}
                   onChange={(e) => setInvestmentAmount(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-slate-100 focus:outline-none focus:border-cyan-500"
+                  className="w-full pl-7 pr-3 py-1.5 bg-[#080B11] border border-[#1E273B] rounded-md text-xs font-mono font-bold text-white focus:outline-none focus:border-sky-500"
                 />
               </div>
             </div>
 
             <div>
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                Risk-Free (%)
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1 font-sans">
+                Risk-Free Rate (%)
               </span>
               <input
                 type="number"
                 step="0.005"
-                value={riskFreeRate * 100}
+                value={(riskFreeRate * 100).toFixed(1)}
                 onChange={(e) => setRiskFreeRate(Number(e.target.value) / 100)}
-                className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-slate-100 focus:outline-none focus:border-cyan-500"
+                className="w-full px-3 py-1.5 bg-[#080B11] border border-[#1E273B] rounded-md text-xs font-mono font-bold text-white focus:outline-none focus:border-sky-500"
               />
             </div>
           </div>
@@ -219,11 +220,11 @@ export default function PortfolioOptimizer({
         <div className="space-y-6">
           
           {/* Strategy Tabs */}
-          <div className="flex items-center space-x-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 w-fit">
+          <div className="flex items-center space-x-1.5 bg-[#0E131F] p-1 rounded-lg border border-[#1E273B] w-fit">
             {[
-              { id: 'max_sharpe', label: 'Maximum Sharpe Ratio (Optimal)', icon: Award },
-              { id: 'min_vol', label: 'Minimum Volatility (Defensive)', icon: ShieldAlert },
-              { id: 'equal_weight', label: '1/N Benchmark', icon: Layers }
+              { id: 'max_sharpe', label: 'Max Sharpe Tangency (Optimal)', icon: Award },
+              { id: 'min_vol', label: 'Minimum Variance (Defensive)', icon: ShieldAlert },
+              { id: 'equal_weight', label: '1/N Benchmark (Equal Weight)', icon: Layers }
             ].map(tab => {
               const Icon = tab.icon;
               const isActive = activeStrategy === tab.id;
@@ -231,9 +232,9 @@ export default function PortfolioOptimizer({
                 <button
                   key={tab.id}
                   onClick={() => setActiveStrategy(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                     isActive
-                      ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                      ? 'bg-[#182137] text-sky-300 font-semibold border border-sky-500/40 shadow-sm'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
@@ -244,51 +245,51 @@ export default function PortfolioOptimizer({
             })}
           </div>
 
-          {/* Metrics Banner */}
+          {/* Key Portfolio Metrics Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 text-center">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Expected Return</span>
-              <span className="text-xl font-black text-emerald-400 font-mono">
+            <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-3 text-center">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">Expected Return</span>
+              <span className="text-base sm:text-lg font-black text-emerald-400 font-mono tabular-nums">
                 +{currentResult.metrics.expected_annual_return_pct}%
               </span>
               <span className="text-[10px] text-slate-500 block">Annualized</span>
             </div>
 
-            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 text-center">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Annual Volatility</span>
-              <span className="text-xl font-black text-cyan-400 font-mono">
+            <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-3 text-center">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">Annual Volatility</span>
+              <span className="text-base sm:text-lg font-black text-sky-400 font-mono tabular-nums">
                 {currentResult.metrics.annual_volatility_pct}%
               </span>
-              <span className="text-[10px] text-slate-500 block">Portfolio Std Dev</span>
+              <span className="text-[10px] text-slate-500 block">Portfolio Risk</span>
             </div>
 
-            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 text-center">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Sharpe Ratio</span>
-              <span className="text-xl font-black text-emerald-400 font-mono">
+            <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-3 text-center">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">Sharpe Ratio</span>
+              <span className="text-base sm:text-lg font-black text-emerald-400 font-mono tabular-nums">
                 {currentResult.metrics.sharpe_ratio}
               </span>
-              <span className="text-[10px] text-slate-500 block">Excess / Risk</span>
+              <span className="text-[10px] text-slate-500 block">Risk-Adjusted</span>
             </div>
 
-            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 text-center">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Sortino Ratio</span>
-              <span className="text-xl font-black text-teal-300 font-mono">
+            <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-3 text-center">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">Sortino Ratio</span>
+              <span className="text-base sm:text-lg font-black text-teal-300 font-mono tabular-nums">
                 {currentResult.metrics.sortino_ratio}
               </span>
-              <span className="text-[10px] text-slate-500 block">Downside Vol Ratio</span>
+              <span className="text-[10px] text-slate-500 block">Downside Adjusted</span>
             </div>
 
-            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 text-center">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">1-Day VaR (95%)</span>
-              <span className="text-xl font-black text-rose-400 font-mono">
+            <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-3 text-center">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">1-Day VaR (95%)</span>
+              <span className="text-base sm:text-lg font-black text-rose-400 font-mono tabular-nums">
                 -{currentResult.metrics.var_95_pct}%
               </span>
               <span className="text-[10px] text-slate-500 block">Value-at-Risk</span>
             </div>
 
-            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 text-center">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">1-Day CVaR (95%)</span>
-              <span className="text-xl font-black text-rose-400 font-mono">
+            <div className="bg-[#0E131F] border border-[#1E273B] rounded-lg p-3 text-center">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-sans">1-Day CVaR (95%)</span>
+              <span className="text-base sm:text-lg font-black text-rose-400 font-mono tabular-nums">
                 -{currentResult.metrics.cvar_95_pct}%
               </span>
               <span className="text-[10px] text-slate-500 block">Expected Shortfall</span>
@@ -299,9 +300,9 @@ export default function PortfolioOptimizer({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* Allocation Table & Capital Distribution */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 backdrop-blur-xl space-y-4">
-              <h4 className="font-extrabold text-white text-sm uppercase tracking-wider flex items-center justify-between">
-                <span>Asset Allocation & Capital Deployment</span>
+            <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-5 shadow-xl shadow-black/20 space-y-4">
+              <h4 className="font-bold text-white text-xs uppercase tracking-wider flex items-center justify-between font-sans">
+                <span>Optimized Asset Weights & Capital Outlay</span>
                 <span className="text-xs text-slate-400 font-normal font-mono">
                   ${investmentAmount.toLocaleString()} Total
                 </span>
@@ -310,17 +311,17 @@ export default function PortfolioOptimizer({
               <div className="space-y-3">
                 {currentResult.allocations.map(alloc => (
                   <div key={alloc.ticker} className="space-y-1">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-white font-mono">{alloc.ticker}</span>
-                      <div className="flex items-center space-x-3 font-mono">
-                        <span className="text-slate-400">{alloc.estimated_shares} shares</span>
-                        <span className="text-slate-200 font-bold">${alloc.allocated_cash.toLocaleString()}</span>
-                        <span className="text-cyan-400 font-black">{alloc.weight}%</span>
+                    <div className="flex justify-between items-center text-xs font-mono">
+                      <span className="font-bold text-white">{alloc.ticker}</span>
+                      <div className="flex items-center space-x-3">
+                        <span className="text-slate-400">{alloc.estimated_shares} sh</span>
+                        <span className="text-slate-200 font-semibold">${alloc.allocated_cash.toLocaleString()}</span>
+                        <span className="text-sky-400 font-bold">{alloc.weight}%</span>
                       </div>
                     </div>
-                    <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                    <div className="w-full bg-[#080B11] h-1.5 rounded-full overflow-hidden border border-[#1E273B]">
                       <div 
-                        className="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full rounded-full transition-all duration-500" 
+                        className="bg-sky-400 h-full rounded-full transition-all duration-500" 
                         style={{ width: `${alloc.weight}%` }}
                       />
                     </div>
@@ -330,18 +331,18 @@ export default function PortfolioOptimizer({
             </div>
 
             {/* Markowitz Efficient Frontier Scatter Chart */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 backdrop-blur-xl space-y-4">
+            <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-5 shadow-xl shadow-black/20 space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="font-extrabold text-white text-sm uppercase tracking-wider">
-                  Markowitz Efficient Frontier & Monte Carlo
+                <h4 className="font-bold text-white text-xs uppercase tracking-wider font-sans">
+                  Markowitz Efficient Frontier & Monte Carlo Surface
                 </h4>
-                <span className="text-[11px] text-cyan-400 font-mono font-semibold">1,500 Portfolios</span>
+                <span className="text-[11px] text-sky-400 font-mono font-semibold">1,500 Portfolios</span>
               </div>
 
-              <div className="h-[280px] w-full">
+              <div className="h-[260px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: -20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1E273B" />
                     <XAxis 
                       type="number" 
                       dataKey="volatility" 
@@ -349,6 +350,7 @@ export default function PortfolioOptimizer({
                       unit="%" 
                       stroke="#64748b" 
                       tick={{ fontSize: 10 }}
+                      fontFamily="JetBrains Mono"
                     />
                     <YAxis 
                       type="number" 
@@ -357,24 +359,25 @@ export default function PortfolioOptimizer({
                       unit="%" 
                       stroke="#64748b" 
                       tick={{ fontSize: 10 }}
+                      fontFamily="JetBrains Mono"
                     />
-                    <ZAxis range={[20, 20]} />
+                    <ZAxis range={[15, 15]} />
                     <Tooltip content={<CustomScatterTooltip />} />
                     
                     {/* Simulated Monte Carlo points */}
                     <Scatter 
                       name="Simulated Portfolios" 
-                      data={portfolioData.simulated_portfolios.slice(0, 400)} 
+                      data={portfolioData.simulated_portfolios.slice(0, 350)} 
                       fill="#38bdf8" 
-                      opacity={0.35} 
+                      opacity={0.3} 
                     />
 
                     {/* Efficient Frontier curve points */}
                     <Scatter 
                       name="Efficient Frontier" 
                       data={portfolioData.efficient_frontier} 
-                      fill="#06b6d4" 
-                      line={{ stroke: '#06b6d4', strokeWidth: 2 }} 
+                      fill="#38bdf8" 
+                      line={{ stroke: '#38bdf8', strokeWidth: 2 }} 
                       shape="circle" 
                     />
                   </ScatterChart>
@@ -384,32 +387,32 @@ export default function PortfolioOptimizer({
 
           </div>
 
-          {/* Correlation Matrix Heatmap */}
-          <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-              Asset Cross-Correlation Matrix
+          {/* Cross-Correlation Matrix */}
+          <div className="bg-[#0E131F] border border-[#1E273B] rounded-xl p-5 shadow-xl shadow-black/20">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 font-sans">
+              Asset Empirical Correlation Matrix
             </h4>
             <div className="overflow-x-auto">
               <table className="w-full text-xs font-mono text-center">
                 <thead>
-                  <tr className="border-b border-slate-800">
+                  <tr className="border-b border-[#1E273B]">
                     <th className="py-2 text-left text-slate-500">Asset</th>
                     {portfolioData.tickers.map(t => (
                       <th key={t} className="py-2 px-3 text-slate-400">{t}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-[#1E273B]/50">
                   {portfolioData.tickers.map(t1 => (
-                    <tr key={t1} className="border-b border-slate-800/50">
-                      <td className="py-2 text-left font-bold text-slate-300">{t1}</td>
+                    <tr key={t1} className="hover:bg-[#131A2B]/40">
+                      <td className="py-2 text-left font-bold text-slate-200">{t1}</td>
                       {portfolioData.tickers.map(t2 => {
                         const val = portfolioData.correlation_matrix[t1]?.[t2] ?? 1.0;
                         const isHigh = val > 0.7 && t1 !== t2;
                         return (
                           <td 
                             key={t2} 
-                            className={`py-2 px-3 ${
+                            className={`py-2 px-3 tabular-nums ${
                               t1 === t2 
                                 ? 'text-slate-600' 
                                 : isHigh 
@@ -428,7 +431,7 @@ export default function PortfolioOptimizer({
             </div>
           </div>
 
-          {/* Historical Crisis Stress Testing Simulator */}
+          {/* Historical Crisis Stress Simulator */}
           <StressTestCard
             stressTestData={stressTestData}
             onRunStressTest={() => onRunStressTest && onRunStressTest(selectedTickers, investmentAmount)}
