@@ -168,16 +168,20 @@ def create_user(email: str, password: str, full_name: str, role: str = "trader")
         ))
         user_id = cursor.lastrowid
 
-        # Initialize user's $100k isolated virtual portfolio
-        cursor.execute("""
-            INSERT INTO portfolios (user_id, cash_balance, initial_balance, total_deposited, total_withdrawn, updated_at)
-            VALUES (?, 100000.0, 100000.0, 100000.0, 0.0, ?);
-        """, (user_id, now))
+        # Realistic brokerage funding: Personal accounts start at $0.00 until funded!
+        # Demo account starts with $100,000 for instant evaluation.
+        default_bal = 100000.0 if role == "demo" else 0.0
 
         cursor.execute("""
-            INSERT INTO cash_transactions (id, user_id, type, amount, balance_after, method, status, timestamp, description)
-            VALUES (?, ?, 'ACCOUNT_RESET', 100000.0, 100000.0, 'INITIAL_ALLOCATION', 'SETTLED', ?, 'Initial Trading Capital ($100k Sandbox)');
-        """, (f"tx_init_{uuid.uuid4().hex[:8]}", user_id, now))
+            INSERT INTO portfolios (user_id, cash_balance, initial_balance, total_deposited, total_withdrawn, updated_at)
+            VALUES (?, ?, ?, ?, 0.0, ?);
+        """, (user_id, default_bal, default_bal, default_bal, now))
+
+        if default_bal > 0:
+            cursor.execute("""
+                INSERT INTO cash_transactions (id, user_id, type, amount, balance_after, method, status, timestamp, description)
+                VALUES (?, ?, 'ACCOUNT_RESET', ?, ?, 'INITIAL_ALLOCATION', 'SETTLED', ?, 'Initial Demo Trading Capital ($100k Sandbox)');
+            """, (f"tx_init_{uuid.uuid4().hex[:8]}", user_id, default_bal, default_bal, now))
 
         conn.commit()
         return get_user_by_id(user_id)
@@ -192,10 +196,15 @@ def get_or_create_portfolio(user_id: int) -> Dict[str, Any]:
         if row:
             return dict(row)
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        cursor.execute("SELECT role FROM users WHERE id = ?;", (user_id,))
+        u = cursor.fetchone()
+        default_bal = 100000.0 if (u and u["role"] == "demo") else 0.0
+
         cursor.execute("""
             INSERT INTO portfolios (user_id, cash_balance, initial_balance, total_deposited, total_withdrawn, updated_at)
-            VALUES (?, 100000.0, 100000.0, 100000.0, 0.0, ?);
-        """, (user_id, now))
+            VALUES (?, ?, ?, ?, 0.0, ?);
+        """, (user_id, default_bal, default_bal, default_bal, now))
         conn.commit()
         cursor.execute("SELECT * FROM portfolios WHERE user_id = ?;", (user_id,))
         return dict(cursor.fetchone())
@@ -290,20 +299,28 @@ def get_cash_transactions_by_user(user_id: int, limit: int = 50) -> List[Dict[st
         cursor.execute("SELECT * FROM cash_transactions WHERE user_id = ? ORDER BY timestamp DESC LIMIT ?;", (user_id, limit))
         return [dict(r) for r in cursor.fetchall()]
 
-def reset_user_portfolio_db(user_id: int):
+def reset_user_portfolio_db(user_id: int, target_balance: Optional[float] = None):
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM positions WHERE user_id = ?;", (user_id,))
         cursor.execute("DELETE FROM trades WHERE user_id = ?;", (user_id,))
         cursor.execute("DELETE FROM cash_transactions WHERE user_id = ?;", (user_id,))
+
+        if target_balance is None:
+            cursor.execute("SELECT role FROM users WHERE id = ?;", (user_id,))
+            u = cursor.fetchone()
+            target_balance = 100000.0 if (u and u["role"] == "demo") else 0.0
+
         cursor.execute("""
             UPDATE portfolios 
-            SET cash_balance = 100000.0, initial_balance = 100000.0, total_deposited = 100000.0, total_withdrawn = 0.0, updated_at = ?
+            SET cash_balance = ?, initial_balance = ?, total_deposited = ?, total_withdrawn = 0.0, updated_at = ?
             WHERE user_id = ?;
-        """, (now, user_id))
-        cursor.execute("""
-            INSERT INTO cash_transactions (id, user_id, type, amount, balance_after, method, status, timestamp, description)
-            VALUES (?, ?, 'ACCOUNT_RESET', 100000.0, 100000.0, 'INITIAL_ALLOCATION', 'SETTLED', ?, 'Virtual Trading Account Reset to $100,000');
-        """, (f"tx_rst_{uuid.uuid4().hex[:8]}", user_id, now))
+        """, (target_balance, target_balance, target_balance, now, user_id))
+
+        if target_balance > 0:
+            cursor.execute("""
+                INSERT INTO cash_transactions (id, user_id, type, amount, balance_after, method, status, timestamp, description)
+                VALUES (?, ?, 'ACCOUNT_RESET', ?, ?, 'INITIAL_ALLOCATION', 'SETTLED', ?, 'Virtual Trading Account Reset');
+            """, (f"tx_rst_{uuid.uuid4().hex[:8]}", user_id, target_balance, target_balance, now))
         conn.commit()

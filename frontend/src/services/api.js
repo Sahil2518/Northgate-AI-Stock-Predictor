@@ -76,7 +76,10 @@ export const api = {
   // Paper Trading & Brokerage Execution Simulator
   getPaperAccount: () => apiClient.get('/paper-trading/account').then(res => res.data),
   executePaperOrder: (order) => apiClient.post('/paper-trading/order', order).then(res => res.data),
-  resetPaperAccount: () => apiClient.post('/paper-trading/reset').then(res => res.data),
+  resetPaperAccount: (target_balance) => {
+    const url = target_balance !== undefined ? `/paper-trading/reset?target_balance=${target_balance}` : '/paper-trading/reset';
+    return apiClient.post(url).then(res => res.data);
+  },
   getBrokerStatus: () => apiClient.get('/paper-trading/broker-status').then(res => res.data),
 
   // Funding & Cashier Wallet Hub

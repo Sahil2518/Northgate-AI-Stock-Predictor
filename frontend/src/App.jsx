@@ -205,12 +205,13 @@ export default function App() {
     }
   };
 
-  const handleResetPaperAccount = async () => {
+  const handleResetPaperAccount = async (targetBalance) => {
     setIsPaperLoading(true);
     try {
-      const res = await api.resetPaperAccount();
+      const res = await api.resetPaperAccount(targetBalance);
       setPaperAccount(res);
-      showToast('info', 'Virtual trading account reset to initial $100,000 cash.');
+      const isZero = targetBalance === 0 || targetBalance === 0.0;
+      showToast('info', isZero ? 'Portfolio cleared to $0.00 (Unfunded empty state).' : 'Portfolio reset with $100,000 Sandbox capital.');
     } catch (err) {
       showToast('error', 'Account reset failed.');
     } finally {
@@ -309,7 +310,7 @@ export default function App() {
           onOpenWallet={() => setIsWalletOpen(true)}
           onOpenAuth={() => setIsAuthOpen(true)}
           currentUser={currentUser}
-          cashBalance={paperAccount?.cash_balance ?? 100000}
+          cashBalance={paperAccount?.cash_balance ?? 0}
           isLoading={isLoading}
         />
 
@@ -431,6 +432,7 @@ export default function App() {
         accountData={paperAccount}
         onDeposit={handleDepositCash}
         onWithdraw={handleWithdrawCash}
+        onResetAccount={handleResetPaperAccount}
         brokerStatus={brokerStatus}
       />
 

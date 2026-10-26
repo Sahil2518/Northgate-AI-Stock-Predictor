@@ -85,11 +85,11 @@ def get_wallet_transactions(current_user: Optional[dict] = Depends(get_current_u
         raise HTTPException(status_code=500, detail=f"Failed to fetch wallet transactions: {str(e)}")
 
 @router.post("/reset", response_model=PaperAccountSummary)
-def reset_account(current_user: Optional[dict] = Depends(get_current_user)):
-    """Reset virtual capital balance back to initial $100,000.00."""
+def reset_account(target_balance: Optional[float] = None, current_user: Optional[dict] = Depends(get_current_user)):
+    """Reset virtual capital balance. Defaults to $0.00 for realistic personal trading, or $100,000 for demo mode."""
     try:
         user_id = current_user["id"] if current_user else None
-        return reset_paper_account(user_id=user_id)
+        return reset_paper_account(user_id=user_id, target_balance=target_balance)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to reset account: {str(e)}")
 

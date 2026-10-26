@@ -207,6 +207,8 @@ def execute_paper_order(request: PaperOrderRequest, user_id: Optional[int] = Non
 
     if request.action == "BUY":
         if total_cost > cash:
+            if cash <= 0:
+                raise ValueError("Account unfunded ($0.00 cash). Please deposit funds via the Cashier Hub to begin trading.")
             raise ValueError(f"Insufficient funds. Order requires ${total_cost:,.2f}, but available cash is ${cash:,.2f}.")
 
         cash -= total_cost
@@ -360,8 +362,8 @@ def withdraw_cash(amount: float, method: str = "ACH", note: Optional[str] = None
     update_portfolio(uid, cash, total_dep, total_wth)
     return get_paper_account(uid)
 
-def reset_paper_account(user_id: Optional[int] = None) -> PaperAccountSummary:
-    """Resets the paper trading account back to $100,000 cash balance in SQLite."""
+def reset_paper_account(user_id: Optional[int] = None, target_balance: Optional[float] = None) -> PaperAccountSummary:
+    """Resets the paper trading account in SQLite (defaults to $0.00 for personal users, $100k for demo)."""
     uid = _resolve_user_id(user_id)
-    reset_user_portfolio_db(uid)
+    reset_user_portfolio_db(uid, target_balance=target_balance)
     return get_paper_account(uid)

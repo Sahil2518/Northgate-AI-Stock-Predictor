@@ -23,6 +23,7 @@ export default function WalletModal({
   accountData,
   onDeposit,
   onWithdraw,
+  onResetAccount,
   brokerStatus
 }) {
   const [activeTab, setActiveTab] = useState('deposit'); // 'deposit', 'withdraw', 'ledger', 'liveBroker'
@@ -35,9 +36,9 @@ export default function WalletModal({
 
   if (!isOpen) return null;
 
-  const cash = Number(accountData?.cash_balance ?? 100000);
-  const totalEquity = Number(accountData?.total_equity ?? 100000);
-  const totalDeposited = Number(accountData?.total_deposited ?? 100000);
+  const cash = Number(accountData?.cash_balance ?? 0);
+  const totalEquity = Number(accountData?.total_equity ?? 0);
+  const totalDeposited = Number(accountData?.total_deposited ?? 0);
   const totalWithdrawn = Number(accountData?.total_withdrawn ?? 0);
   const transactions = Array.isArray(accountData?.cash_transactions) ? accountData.cash_transactions : [];
 
@@ -129,7 +130,7 @@ export default function WalletModal({
         <div className="px-6 py-3.5 bg-[#07090E] border-b border-[#171D2B] grid grid-cols-3 gap-4">
           <div>
             <span className="text-[10px] uppercase font-mono text-slate-500 block">Available Cash</span>
-            <span className="text-base font-bold font-mono text-emerald-400">
+            <span className={`text-base font-bold font-mono ${cash <= 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
               ${cash.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
@@ -140,12 +141,23 @@ export default function WalletModal({
             </span>
           </div>
           <div>
-            <span className="text-[10px] uppercase font-mono text-slate-500 block">Settlement Status</span>
-            <span className="text-xs font-semibold text-sky-400 flex items-center gap-1 mt-0.5">
-              <Zap className="w-3 h-3 text-sky-400" /> T+1 Continuous Net
+            <span className="text-[10px] uppercase font-mono text-slate-500 block">Account Status</span>
+            <span className={`text-xs font-semibold flex items-center gap-1 mt-0.5 ${cash <= 0 ? 'text-amber-400' : 'text-sky-400'}`}>
+              {cash <= 0 ? <AlertCircle className="w-3 h-3 text-amber-400" /> : <Zap className="w-3 h-3 text-sky-400" />}
+              {cash <= 0 ? 'Unfunded ($0.00)' : 'Active (Funded)'}
             </span>
           </div>
         </div>
+
+        {/* Unfunded Notice Banner */}
+        {cash <= 0 && (
+          <div className="mx-6 mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+            <div className="leading-relaxed text-[11px]">
+              <strong className="text-amber-300">Account Currently Unfunded ($0.00 Available Cash):</strong> Real brokerage accounts require an initial deposit before you can buy stocks. Select a deposit amount below to fund your wallet.
+            </div>
+          </div>
+        )}
 
         {/* Tab Navigation */}
         <div className="flex border-b border-[#171D2B] bg-[#0A0E1A] px-6">
@@ -505,9 +517,41 @@ export default function WalletModal({
 
         </div>
 
-        {/* Footer Note */}
+        {/* Footer Note & Realism Controls */}
         <div className="px-6 py-3 bg-[#0D1322] border-t border-[#1E273B] flex items-center justify-between text-[11px] text-slate-500 font-mono">
-          <span>SIPC Account Insurance • Real-Time ACH Simulator</span>
+          <div className="flex items-center gap-2">
+            <span>SIPC Insured • ACH Gateway</span>
+            {onResetAccount && (
+              <>
+                <span className="text-slate-600">|</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('Reset wallet to $0.00 (Unfunded empty wallet)?')) {
+                      onResetAccount(0.0);
+                      setFeedback({ type: 'success', text: 'Wallet cleared to $0.00. Make a deposit to fund it.' });
+                    }
+                  }}
+                  className="text-amber-400 hover:text-amber-300 underline transition-colors"
+                >
+                  Clear to $0.00
+                </button>
+                <span className="text-slate-600">·</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('Fund wallet with $100,000 Sandbox Grant?')) {
+                      onResetAccount(100000.0);
+                      setFeedback({ type: 'success', text: 'Wallet funded with $100,000 sandbox capital.' });
+                    }
+                  }}
+                  className="text-sky-400 hover:text-sky-300 underline transition-colors"
+                >
+                  Reset $100k
+                </button>
+              </>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="px-4 py-1.5 bg-[#141B2D] hover:bg-[#1C253D] text-slate-300 hover:text-white rounded-lg border border-[#232F48] transition-colors"

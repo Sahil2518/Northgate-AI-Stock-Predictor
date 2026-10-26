@@ -27,7 +27,7 @@ export default function TerminalTopBar({
   onOpenWallet,
   onOpenAuth,
   currentUser,
-  cashBalance = 100000,
+  cashBalance = 0,
   isLoading
 }) {
   const [searchInput, setSearchInput] = useState('');

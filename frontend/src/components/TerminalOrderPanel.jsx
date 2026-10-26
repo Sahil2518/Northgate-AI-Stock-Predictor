@@ -95,9 +95,9 @@ export default function TerminalOrderPanel({
   const commission = Number(shares || 0) * 0.005;
   const estimatedTotal = grossValue + commission;
 
-  // Account NAV
-  const totalEquity = Number(accountData?.total_equity ?? 100000);
-  const cashBalance = Number(accountData?.cash_balance ?? 100000);
+  // Account NAV (Strict default 0.0 for realistic un-funded state)
+  const totalEquity = Number(accountData?.total_equity ?? 0);
+  const cashBalance = Number(accountData?.cash_balance ?? 0);
   const totalPnl = Number(accountData?.total_pnl ?? 0);
   const isPnlPositive = totalPnl >= 0;
 
@@ -289,11 +289,28 @@ export default function TerminalOrderPanel({
             </div>
           </div>
 
+          {/* Unfunded Account Alert Banner */}
+          {cashBalance <= 0 && action === 'BUY' && (
+            <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="text-[11px] font-sans">Account Unfunded ($0.00 cash)</span>
+              </div>
+              <button
+                type="button"
+                onClick={onOpenWallet}
+                className="px-2 py-1 rounded bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-[10px] tracking-wide transition-colors"
+              >
+                + Deposit
+              </button>
+            </div>
+          )}
+
           {/* Execution Button */}
           <button
             type="submit"
-            disabled={isSubmitting || isPaperLoading}
-            className={`w-full py-2.5 rounded-lg font-bold font-sans text-xs tracking-wide transition-all flex items-center justify-center gap-2 ${
+            disabled={isSubmitting || isPaperLoading || (cashBalance <= 0 && action === 'BUY')}
+            className={`w-full py-2.5 rounded-lg font-bold font-sans text-xs tracking-wide transition-all flex items-center justify-center gap-2 disabled:opacity-50 ${
               action === 'BUY'
                 ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
                 : 'bg-rose-500 hover:bg-rose-400 text-white'
@@ -311,16 +328,33 @@ export default function TerminalOrderPanel({
           <span className="text-[10px] text-slate-500 uppercase tracking-wider font-sans font-semibold">
             Paper Portfolio NAV
           </span>
-          <button
-            onClick={() => {
-              if (window.confirm('Reset virtual trading account to $100,000 cash?')) {
-                onResetAccount();
-              }
-            }}
-            className="text-[10px] text-slate-500 hover:text-rose-400 flex items-center gap-1 transition-colors"
-          >
-            <RotateCcw className="w-3 h-3" /> Reset $100k
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Reset portfolio to $0.00 (Unfunded empty state)?')) {
+                  onResetAccount(0.0);
+                }
+              }}
+              className="text-[10px] text-slate-500 hover:text-amber-400 flex items-center gap-1 transition-colors"
+              title="Reset to $0.00 empty wallet"
+            >
+              <RotateCcw className="w-2.5 h-2.5" /> $0
+            </button>
+            <span className="text-slate-700">·</span>
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Fund virtual portfolio with $100,000 Sandbox Capital?')) {
+                  onResetAccount(100000.0);
+                }
+              }}
+              className="text-[10px] text-slate-500 hover:text-sky-400 flex items-center gap-1 transition-colors"
+              title="Reset to $100,000 Sandbox capital"
+            >
+              $100k
+            </button>
+          </div>
         </div>
 
         <div className="flex justify-between items-center text-sm font-bold text-white">

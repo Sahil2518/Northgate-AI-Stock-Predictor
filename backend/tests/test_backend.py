@@ -268,24 +268,28 @@ def test_authentication_and_multi_user_isolation():
     me_res = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {user_token}"})
     assert me_res.status_code == 200
     assert me_res.json()["email"] == test_email
+
+    # 4. Check that new personal user realistically starts at $0.00 (Unfunded)
+    init_acc = client.get("/api/v1/paper-trading/account", headers={"Authorization": f"Bearer {user_token}"})
+    assert init_acc.status_code == 200
+    assert init_acc.json()["cash_balance"] == 0.0
     
-    # 4. Test Multi-User Portfolio Isolation
-    # Intern deposits $75,000
+    # 5. Test Multi-User Portfolio Isolation: Intern deposits $75,000
     dep_intern = client.post(
         "/api/v1/paper-trading/wallet/deposit",
         json={"amount": 75000.0, "method": "ACH", "note": "Intern Allocation"},
         headers={"Authorization": f"Bearer {user_token}"}
     )
     assert dep_intern.status_code == 200
-    assert dep_intern.json()["cash_balance"] == 175000.0
+    assert dep_intern.json()["cash_balance"] == 75000.0
     
-    # Demo Trader account should NOT be affected
+    # 6. Demo Trader account should NOT be affected
     demo_acc = client.get(
         "/api/v1/paper-trading/account",
         headers={"Authorization": f"Bearer {demo_token}"}
     )
     assert demo_acc.status_code == 200
-    # Demo balance is separate from intern's $175,000 balance!
-    assert demo_acc.json()["cash_balance"] != 175000.0
+    # Demo balance is separate from intern's $75,000 balance!
+    assert demo_acc.json()["cash_balance"] != 75000.0
 
 
